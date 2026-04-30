@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CommentType {
+  user
+  ai
+  editor
+}
+
+enum ReplyMode {
+  single
+  multi
+  debate
+  explain
+  fact_check
+  joke
+}
+
+enum AiReplyJobStatus {
+  queued
+  sending
+  completed
+  failed
+  skipped
+}
+
+model Article {
+  id            String          @id @default(cuid())
+  slug          String          @unique
+  title         String
+  category      String
+  publishedAt   DateTime
+  summaryLines  Json
+  body          Json
+  whyItMatters  String
+  tomoPoint     String
+  thumbnailUrl  String
+  viewCount     Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  sources       ArticleSource[]
+  comments      Comment[]
+  aiReplyJobs   AiReplyJob[]
+
+  @@index([category, publishedAt])
+  @@index([publishedAt])
+}
+
+model ArticleSource {
+  id        String   @id @default(cuid())
+  articleId  String
+  label     String
+  url       String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, sortOrder])
+}
+
+model Comment {
+  id                String       @id @default(cuid())
+  articleId         String
+  displayNo         Int
+  parentCommentId   String?
+  replyToDisplayNo  Int?
+  replyMode         ReplyMode?
+  authorName        String
+  authorRole        String
+  shortId           String
+  bodyLines         Json
+  commentType       CommentType
+  aiGenerated       Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  likeCount         Int          @default(0)
+  reportCount       Int          @default(0)
+  updatedAt         DateTime     @updatedAt
+
+  article           Article      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  parentComment     Comment?     @relation("CommentThread", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies           Comment[]    @relation("CommentThread")
+  aiReplyJobs       AiReplyJob[] @relation("AiReplySourceComment")
+
+  @@unique([articleId, displayNo])
+  @@index([articleId, createdAt])
+  @@index([articleId, replyToDisplayNo])
+  @@index([parentCommentId])
+}
+
+model AiReplyJob {
+  id                   String          @id @default(cuid())
+  articleId            String
+  sourceCommentId      String
+  status               AiReplyJobStatus @default(queued)
+  replyMode            ReplyMode?
+  targetReplyCount     Int             @default(0)
+  payload              Json
+  lastError            String?
+  requestedAt          DateTime        @default(now())
+  sentAt               DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  article              Article         @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  sourceComment        Comment         @relation("AiReplySourceComment", fields: [sourceCommentId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, status])
+  @@index([sourceCommentId, status])
+}
