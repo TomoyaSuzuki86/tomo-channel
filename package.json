@@ -8,7 +8,8 @@
     "postbuild": "node scripts/prepare-firebase-export.mjs",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
-    "db:seed": "node prisma/seed.mjs"
+    "db:generate": "prisma generate",
+    "db:seed": "tsx prisma/seed.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -26,6 +27,7 @@
     "eslint-config-next": "16.2.4",
     "postcss": "^8.5.12",
     "prisma": "^6.19.3",
+    "tsx": "^4.20.6",
     "tailwindcss": "^3.4.19",
     "typescript": "^6.0.3"
   }

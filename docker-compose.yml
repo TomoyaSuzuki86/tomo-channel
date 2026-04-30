@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tomo-channel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tomo_channel
+      POSTGRES_USER: tomo_channel
+      POSTGRES_PASSWORD: tomo_channel
+    ports:
+      - "5432:5432"
+    volumes:
+      - tomo-channel-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tomo_channel -d tomo_channel"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tomo-channel-postgres-data:
