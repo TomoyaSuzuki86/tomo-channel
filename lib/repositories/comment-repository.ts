@@ -129,6 +129,7 @@ type InsertAiRepliesInput = {
   replyMode: ReplyMode;
   comments: Array<{
     displayNo: number;
+    replyMode?: ReplyMode;
     authorName: string;
     authorRole: string;
     shortId: string;
@@ -137,15 +138,24 @@ type InsertAiRepliesInput = {
 };
 
 export async function insertAiReplies(input: InsertAiRepliesInput) {
-  const createdComments = await prisma.$transaction(
-    input.comments.map((comment) =>
-      prisma.comment.create({
+  return prisma.$transaction((tx) => insertAiRepliesWithClient(input, tx));
+}
+
+export async function insertAiRepliesWithClient(
+  input: InsertAiRepliesInput,
+  client: CommentWriteClient
+) {
+  const createdComments: Array<Awaited<ReturnType<typeof client.comment.create>>> = [];
+
+  for (const comment of input.comments) {
+    createdComments.push(
+      await client.comment.create({
         data: {
           articleId: input.articleId,
           displayNo: comment.displayNo,
           parentCommentId: input.parentCommentId,
           replyToDisplayNo: input.replyToDisplayNo,
-          replyMode: input.replyMode,
+          replyMode: comment.replyMode ?? input.replyMode,
           authorName: comment.authorName,
           authorRole: comment.authorRole,
           shortId: comment.shortId,
@@ -154,8 +164,8 @@ export async function insertAiReplies(input: InsertAiRepliesInput) {
           aiGenerated: true
         }
       })
-    )
-  );
+    );
+  }
 
   return createdComments.map(mapComment);
 }

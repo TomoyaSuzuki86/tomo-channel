@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "db:generate": "prisma generate",
-    "db:seed": "tsx prisma/seed.mjs"
+    "db:seed": "tsx prisma/seed.mjs",
+    "jobs:process-ai-reply": "tsx scripts/process-ai-reply-job.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
