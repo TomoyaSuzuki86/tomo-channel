@@ -1,4 +1,5 @@
 import { processNextAiReplyJob } from "@/lib/jobs/process-ai-reply-job";
+import { authorizeJobProcessRequest } from "@/lib/jobs/job-process-auth";
 
 export const runtime = "nodejs";
 
@@ -6,7 +7,17 @@ function buildJson(status: number, payload: Record<string, unknown>) {
   return Response.json(payload, { status });
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const auth = authorizeJobProcessRequest(request);
+
+  if (!auth.allowed) {
+    return buildJson(auth.status, {
+      ok: false,
+      processed: false,
+      error: auth.error
+    });
+  }
+
   try {
     const result = await processNextAiReplyJob();
 
