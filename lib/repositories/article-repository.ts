@@ -111,6 +111,18 @@ export async function getArticleBySlug(slug: string) {
   return article ? mapArticle(article) : null;
 }
 
+export async function getArticleById(id: string) {
+  const article = await prisma.article.findUnique({
+    where: { id },
+    include: {
+      sources: true,
+      comments: true
+    }
+  });
+
+  return article ? mapArticle(article) : null;
+}
+
 export async function listRecentArticleSummaries(take = 10) {
   return prisma.article.findMany({
     select: {

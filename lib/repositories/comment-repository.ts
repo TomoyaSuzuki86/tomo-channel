@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type { Comment, ReplyMode } from "@/lib/types";
 
 type CommentWithRelations = Prisma.CommentGetPayload<Record<string, never>>;
+type CommentWriteClient = Prisma.TransactionClient;
 
 function parseJsonArray<T>(value: Prisma.JsonValue): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
@@ -48,8 +49,38 @@ export async function listCommentsByArticleId(articleId: string) {
   return comments.map(mapComment);
 }
 
-export async function createUserComment(input: CreateUserCommentInput) {
-  const comment = await prisma.comment.create({
+export async function getNextDisplayNoForArticle(
+  client: CommentWriteClient,
+  articleId: string
+) {
+  const aggregate = await client.comment.aggregate({
+    where: { articleId },
+    _max: {
+      displayNo: true
+    }
+  });
+
+  return (aggregate._max.displayNo ?? 0) + 1;
+}
+
+export async function findCommentById(
+  client: CommentWriteClient,
+  commentId: string,
+  articleId: string
+) {
+  return client.comment.findFirst({
+    where: {
+      id: commentId,
+      articleId
+    }
+  });
+}
+
+export async function createUserComment(
+  input: CreateUserCommentInput,
+  client: CommentWriteClient = prisma
+) {
+  const comment = await client.comment.create({
     data: {
       articleId: input.articleId,
       displayNo: input.displayNo,
@@ -76,8 +107,11 @@ type CreateAiReplyJobInput = {
   payload: Prisma.InputJsonValue;
 };
 
-export async function createAiReplyJob(input: CreateAiReplyJobInput) {
-  return prisma.aiReplyJob.create({
+export async function createAiReplyJob(
+  input: CreateAiReplyJobInput,
+  client: CommentWriteClient = prisma
+) {
+  return client.aiReplyJob.create({
     data: {
       articleId: input.articleId,
       sourceCommentId: input.sourceCommentId,
