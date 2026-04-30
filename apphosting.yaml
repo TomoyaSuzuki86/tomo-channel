@@ -1,0 +1,45 @@
+# App Hosting backend settings for the dynamic deployment path.
+# Firebase Hosting keeps using static export; this file is for App Hosting only.
+
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 80
+
+env:
+  - variable: APP_HOSTING
+    value: "true"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: DATABASE_URL
+    secret: cloudsql_database_url
+    availability:
+      - RUNTIME
+
+  - variable: JOB_PROCESS_SECRET
+    secret: job_process_secret
+    availability:
+      - RUNTIME
+
+  - variable: AI_REPLY_PROVIDER
+    value: "mock"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: OPENAI_API_KEY
+    secret: openai_api_key
+    availability:
+      - RUNTIME
+
+  - variable: OPENAI_MODEL
+    value: "gpt-5.4-mini"
+    availability:
+      - BUILD
+      - RUNTIME
+
+# Configure VPC access in Firebase/GCP when connecting to Cloud SQL.
+# vpcAccess:
+#   connector: projects/PROJECT_ID/locations/REGION/connectors/CONNECTOR_NAME

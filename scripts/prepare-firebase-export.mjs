@@ -1,6 +1,11 @@
 import { copyFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
+if (process.env.APP_HOSTING === "true" || process.env.FIREBASE_APP_HOSTING === "true") {
+  console.log("APP_HOSTING mode detected; skipping Firebase Hosting export helpers.");
+  process.exit(0);
+}
+
 const outDir = path.join(process.cwd(), "out");
 const articlesDir = path.join(outDir, "articles");
 
