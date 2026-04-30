@@ -1,4 +1,5 @@
 import { ChevronRight, Flame, Hash, Info, Megaphone } from "lucide-react";
+import Link from "next/link";
 import { rankingArticles } from "@/lib/mock-data";
 
 const keywords = ["AI", "生活メモ", "家計", "地域", "学び直し", "予定共有", "掲示板", "朝刊"];
@@ -6,7 +7,7 @@ const keywords = ["AI", "生活メモ", "家計", "地域", "学び直し", "予
 export function RankingSidebar() {
   return (
     <aside className="space-y-4">
-      <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
+      <section id="ranking" className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
         <div className="mb-4 flex items-center gap-2">
           <Flame className="h-5 w-5 text-tomo-pink" />
           <h2 className="text-lg font-black">リアルタイムランキング</h2>
@@ -38,9 +39,13 @@ export function RankingSidebar() {
             </li>
           ))}
         </ol>
-        <button className="mt-5 h-10 w-full rounded-md border border-zinc-200 text-sm font-black text-zinc-700 hover:bg-zinc-50">
+        <Link
+          className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-md border border-zinc-200 text-sm font-black text-zinc-700 hover:bg-zinc-50"
+          href="/archive"
+          prefetch={false}
+        >
           もっと見る
-        </button>
+        </Link>
       </section>
 
       <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">

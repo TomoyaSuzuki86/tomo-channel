@@ -1,6 +1,8 @@
 import { ArticleCard } from "@/components/article-card";
 import { RankingSidebar } from "@/components/ranking-sidebar";
+import Link from "next/link";
 import { articles } from "@/lib/mock-data";
+import { contentCategories, getCategoryPath } from "@/lib/content";
 
 export default function HomePage() {
   const featured = articles[0];
@@ -22,6 +24,30 @@ export default function HomePage() {
             </span>
           </div>
           <ArticleCard article={featured} />
+        </section>
+
+        <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft sm:p-5">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-tomo-pink">探す</p>
+              <h2 className="text-xl font-black">カテゴリで読む</h2>
+            </div>
+            <Link className="text-sm font-black text-zinc-500 hover:text-tomo-pink" href="/search">
+              検索ページへ
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {contentCategories.map((category) => (
+              <Link
+                className="rounded-full border border-zinc-200 px-4 py-2 text-sm font-black text-zinc-700 hover:border-tomo-pink hover:text-tomo-pink"
+                href={getCategoryPath(category)}
+                key={category}
+                prefetch={false}
+              >
+                {category}
+              </Link>
+            ))}
+          </div>
         </section>
 
         <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft sm:p-5">

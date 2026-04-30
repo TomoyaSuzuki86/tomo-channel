@@ -1,7 +1,8 @@
 import { copyFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
-const articlesDir = path.join(process.cwd(), "out", "articles");
+const outDir = path.join(process.cwd(), "out");
+const articlesDir = path.join(outDir, "articles");
 
 async function copyIfPresent(source, destination) {
   try {
@@ -16,6 +17,19 @@ async function copyIfPresent(source, destination) {
 }
 
 async function main() {
+  await Promise.all(
+    [
+      ["search", "__next.search"],
+      ["archive", "__next.archive"]
+    ].map(async ([routeName, token]) => {
+      const routeDir = path.join(outDir, routeName);
+      await copyIfPresent(
+        path.join(routeDir, token, "__PAGE__.txt"),
+        path.join(routeDir, `${token}.__PAGE__.txt`)
+      );
+    })
+  );
+
   let entries = [];
 
   try {

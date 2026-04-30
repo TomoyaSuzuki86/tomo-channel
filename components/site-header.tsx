@@ -1,6 +1,6 @@
-import { LogIn, Search, UserPlus } from "lucide-react";
+import { CalendarDays, LogIn, Search, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { categories } from "@/lib/mock-data";
+import { categoryNavItems } from "@/lib/content";
 
 export function SiteHeader() {
   return (
@@ -17,16 +17,34 @@ export function SiteHeader() {
         </Link>
 
         <div className="flex w-full flex-col gap-3 sm:flex-row lg:max-w-3xl">
-          <label className="relative flex-1">
-            <span className="sr-only">キーワードで検索</span>
+          <form action="/search" className="relative flex-1">
+            <label className="sr-only" htmlFor="header-search-query">
+              キーワードで検索
+            </label>
             <input
-              className="h-11 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-4 pr-11 text-sm outline-none transition focus:border-tomo-pink focus:bg-white focus:ring-4 focus:ring-pink-100"
+              className="h-11 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-4 pr-24 text-sm outline-none transition focus:border-tomo-pink focus:bg-white focus:ring-4 focus:ring-pink-100"
+              id="header-search-query"
+              name="q"
               placeholder="キーワードで検索"
               type="search"
             />
-            <Search className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-600" />
-          </label>
+            <button
+              className="absolute right-2 top-1/2 inline-flex h-8 -translate-y-1/2 items-center gap-1 rounded-md bg-zinc-950 px-3 text-xs font-black text-white hover:bg-zinc-800"
+              type="submit"
+            >
+              <Search className="h-4 w-4" />
+              検索
+            </button>
+          </form>
           <div className="flex gap-2">
+            <Link
+              className="inline-flex h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-bold text-zinc-800 hover:bg-zinc-100"
+              href="/archive"
+              prefetch={false}
+            >
+              <CalendarDays className="h-4 w-4" />
+              アーカイブ
+            </Link>
             <button className="inline-flex h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-bold text-zinc-800 hover:bg-zinc-100">
               <LogIn className="h-4 w-4" />
               ログイン
@@ -44,13 +62,14 @@ export function SiteHeader() {
 
       <nav className="bg-zinc-950">
         <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4">
-          {categories.map((category) => (
+          {categoryNavItems.map((item) => (
             <Link
               className="whitespace-nowrap px-5 py-3 text-sm font-bold text-white/90 hover:bg-white/10"
-              href="/"
-              key={category}
+              href={item.href}
+              key={item.label}
+              prefetch={false}
             >
-              {category}
+              {item.label}
             </Link>
           ))}
         </div>
