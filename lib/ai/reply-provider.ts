@@ -32,10 +32,15 @@ export type ReplyGenerationContext = {
   model?: string;
 };
 
-type OpenAiReplyDraft = {
+type AllowedPersona = {
   authorName: string;
-  authorRole: string;
   shortId: string;
+};
+
+type OpenAiReplyDraft = {
+  authorName?: string;
+  authorRole?: string;
+  shortId?: string;
   bodyLines: string[];
 };
 
@@ -46,6 +51,15 @@ type OpenAiReplyPayload = {
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
+const ALLOWED_PERSONAS: AllowedPersona[] = [
+  { authorName: "名無しのニュース民", shortId: "news_line" },
+  { authorName: "名無しのエンジニア", shortId: "engineer_42" },
+  { authorName: "名無しの実務民", shortId: "field_82" },
+  { authorName: "名無しの懐疑民", shortId: "skeptic777" },
+  { authorName: "名無しの詳しい人", shortId: "detail_12" },
+  { authorName: "名無しのn8n民", shortId: "n8n_bot" },
+  { authorName: "名無しの家計民", shortId: "budget_31" }
+];
 
 const replyModeValues: ReplyMode[] = [
   "single",
@@ -62,6 +76,18 @@ function isReplyMode(value: unknown): value is ReplyMode {
 
 function normalizeLines(lines: string[]) {
   return lines.map((line) => line.trim()).filter((line) => line.length > 0);
+}
+
+function findAllowedPersona(authorName: string | undefined, index: number): AllowedPersona {
+  if (authorName) {
+    const exactMatch = ALLOWED_PERSONAS.find((persona) => persona.authorName === authorName);
+
+    if (exactMatch) {
+      return exactMatch;
+    }
+  }
+
+  return ALLOWED_PERSONAS[index % ALLOWED_PERSONAS.length];
 }
 
 export function ensureReplyReferenceLine(replyToDisplayNo: number, bodyLines: string[]) {
@@ -118,6 +144,7 @@ function buildOpenAiSystemPrompt() {
     "Write in a natural, cautious, non-defamatory tone.",
     "Do not impersonate a real person.",
     "Do not cite real forum posts.",
+    "Focus on body text only; persona labels will be normalized by the app.",
     "Return only JSON that matches the schema."
   ].join("\n");
 }
@@ -133,15 +160,7 @@ function buildOpenAiUserPrompt(context: ReplyGenerationContext) {
       },
       replyModeHint: context.replyPlan?.replyMode,
       targetReplyCount: context.replyPlan?.targetReplyCount ?? 1,
-      personas: [
-        "名無しのニュース民",
-        "名無しのエンジニア",
-        "名無しの実務民",
-        "名無しの懐疑民",
-        "名無しの詳しい人",
-        "名無しのn8n民",
-        "名無しの家計民"
-      ]
+      personas: ALLOWED_PERSONAS.map((persona) => persona.authorName)
     },
     null,
     2
@@ -165,7 +184,7 @@ function buildOpenAiSchema() {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["authorName", "authorRole", "shortId", "bodyLines"],
+          required: ["bodyLines"],
           properties: {
             authorName: {
               type: "string",
@@ -249,16 +268,12 @@ function parseOpenAiReplyPayload(payloadText: string): OpenAiReplyPayload {
       : [];
 
     return {
-      authorName: typeof comment.authorName === "string" ? comment.authorName.trim() : "",
-      authorRole: typeof comment.authorRole === "string" ? comment.authorRole.trim() : "",
-      shortId: typeof comment.shortId === "string" ? comment.shortId.trim() : "",
+      authorName: typeof comment.authorName === "string" ? comment.authorName.trim() : undefined,
+      authorRole: typeof comment.authorRole === "string" ? comment.authorRole.trim() : undefined,
+      shortId: typeof comment.shortId === "string" ? comment.shortId.trim() : undefined,
       bodyLines
     };
   });
-
-  if (!comments.every((comment) => comment.authorName && comment.authorRole && comment.shortId)) {
-    throw new Error("OpenAI reply payload contained incomplete comment metadata.");
-  }
 
   return {
     replyMode: parsed.replyMode,
@@ -267,15 +282,19 @@ function parseOpenAiReplyPayload(payloadText: string): OpenAiReplyPayload {
 }
 
 function toReplyPlan(payload: OpenAiReplyPayload, context: ReplyGenerationContext): ReplyPlan {
-  const replyDrafts = payload.comments.map((comment, index) => ({
-    commentType: "ai" as const,
-    aiGenerated: true as const,
-    replyMode: payload.replyMode,
-    authorName: comment.authorName,
-    authorRole: comment.authorRole,
-    shortId: comment.shortId || `openai_${index + 1}`,
-    bodyLines: ensureReplyReferenceLine(context.replyToDisplayNo, comment.bodyLines)
-  }));
+  const replyDrafts = payload.comments.map((comment, index) => {
+    const persona = findAllowedPersona(comment.authorName, index);
+
+    return {
+      commentType: "ai" as const,
+      aiGenerated: true as const,
+      replyMode: payload.replyMode,
+      authorName: persona.authorName,
+      authorRole: "読者",
+      shortId: persona.shortId,
+      bodyLines: ensureReplyReferenceLine(context.replyToDisplayNo, comment.bodyLines)
+    };
+  });
 
   return {
     thinkingLabel: "スレ民が反応中...",

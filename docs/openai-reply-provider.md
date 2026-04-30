@@ -53,6 +53,7 @@ When `AI_REPLY_PROVIDER="openai"`, the app calls the Responses API and asks for 
 ```
 
 The processor normalizes the result so every AI reply includes `>>N` at the top if the model forgets to add it.
+If OpenAI returns an author name or short ID outside the allowlist, the app replaces it with one of the approved personas before saving.
 
 ## Local test flow
 
