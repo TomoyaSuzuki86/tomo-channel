@@ -1,6 +1,5 @@
 import { MessageCircle } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { CategoryPill } from "@/components/category-pill";
 import { formatShortDate } from "@/lib/format";
 import type { Article } from "@/lib/types";
@@ -13,7 +12,10 @@ type ArticleCardProps = {
 export function ArticleCard({ article, compact = false }: ArticleCardProps) {
   return (
     <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-md">
-      <Link href={`/articles/${article.slug}`} className={compact ? "block" : "grid md:grid-cols-[220px_1fr]"}>
+      <a
+        href={`/articles/${article.slug}`}
+        className={compact ? "block" : "grid md:grid-cols-[220px_1fr]"}
+      >
         <Image
           alt=""
           className={compact ? "h-36 w-full object-cover" : "h-48 w-full object-cover md:h-full"}
@@ -34,7 +36,7 @@ export function ArticleCard({ article, compact = false }: ArticleCardProps) {
             <span>{article.viewCount.toLocaleString("ja-JP")} views</span>
           </div>
         </div>
-      </Link>
+      </a>
     </article>
   );
 }

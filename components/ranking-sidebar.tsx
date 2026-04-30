@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ChevronRight, Flame, Hash, Info, Megaphone } from "lucide-react";
 import { rankingArticles } from "@/lib/mock-data";
 
@@ -28,14 +27,14 @@ export function RankingSidebar() {
               >
                 {index + 1}
               </span>
-              <Link href={`/articles/${article.slug}`} className="group">
+              <a href={`/articles/${article.slug}`} className="group">
                 <p className="line-clamp-2 text-sm font-black leading-6 group-hover:text-tomo-pink">
                   {article.title}
                 </p>
                 <p className="mt-1 text-right text-xs font-bold text-tomo-pink">
                   {article.comments.length || Math.floor(article.viewCount / 210)}コメント
                 </p>
-              </Link>
+              </a>
             </li>
           ))}
         </ol>

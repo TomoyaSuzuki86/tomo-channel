@@ -1,6 +1,9 @@
 node_modules
 .next
+.firebase
+.playwright-mcp
 out
+tomo-*.png
 dist
 .env
 .env*
