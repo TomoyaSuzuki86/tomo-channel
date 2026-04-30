@@ -1,4 +1,5 @@
 {
+  "id": "process-ai-reply-example",
   "name": "Process AI Reply",
   "nodes": [
     {
@@ -22,7 +23,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer {{$env.JOB_PROCESS_SECRET}}"
+              "value": "Bearer change-me-in-local-dev"
             }
           ]
         },

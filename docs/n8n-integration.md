@@ -48,6 +48,14 @@ Recommended node settings:
   - `x-job-secret: {{$env.JOB_PROCESS_SECRET}}`
 - Body: empty
 
+In the example workflow JSON, the local-dev secret is written as a literal value
+so Manual Trigger runs work even when the n8n expression sandbox blocks env
+access:
+
+- `Authorization: Bearer change-me-in-local-dev`
+
+If you change `JOB_PROCESS_SECRET`, update the example workflow header to match.
+
 If you run n8n in Docker on the same machine as Next dev, `host.docker.internal` is the easiest way to reach the local API.
 
 ## Import steps

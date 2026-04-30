@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
+import { resolveAiReplyProviderConfig } from "@/lib/ai/reply-provider";
 import type { ReplyMode } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -105,11 +106,16 @@ function buildAiReplyPayload(options: {
     targetReplyCount: number;
     personaGroup: string;
   };
+  aiReplyProvider: {
+    provider: string;
+    model: string;
+  };
 }) {
   return {
     article: options.article,
     sourceComment: options.sourceComment,
     replyPlan: options.replyPlan,
+    aiReplyProvider: options.aiReplyProvider,
     intent: "comment_reply_pipeline",
     createdBy: "api/comments"
   };
@@ -170,6 +176,7 @@ export async function POST(request: Request) {
   }
 
   const replyPlan = inferReplyPlan(rawBody);
+  const aiReplyProvider = resolveAiReplyProviderConfig();
 
   try {
     const result = await prisma.$transaction(
@@ -220,7 +227,8 @@ export async function POST(request: Request) {
                 authorName: createdComment.authorName,
                 bodyLines: createdComment.bodyLines
               },
-              replyPlan
+              replyPlan,
+              aiReplyProvider
             })
           },
           tx

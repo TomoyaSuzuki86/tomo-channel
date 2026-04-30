@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 
+import { generateReplyPlan, resolveAiReplyProviderConfigFromPayload } from "@/lib/ai/reply-provider";
 import { prisma } from "@/lib/prisma";
 import {
   claimNextQueuedAiReplyJob,
@@ -10,7 +11,8 @@ import {
   getNextDisplayNoForArticle,
   insertAiRepliesWithClient
 } from "@/lib/repositories/comment-repository";
-import { buildMockReplyPlan, materializeReplyDrafts } from "@/lib/reply-generator";
+import { materializeReplyDrafts } from "@/lib/reply-generator";
+import type { ReplyMode } from "@/lib/types";
 
 type ProcessAiReplyJobOptions = {
   client?: PrismaClient;
@@ -40,6 +42,40 @@ function normalizeBodyLines(bodyLines: unknown) {
   return [String(bodyLines ?? "")].filter((line) => line.length > 0);
 }
 
+function normalizeReplyProviderPayload(payload: unknown) {
+  return payload && typeof payload === "object" ? (payload as Record<string, unknown>) : undefined;
+}
+
+function readReplyPlanFromPayload(payload: Record<string, unknown> | undefined) {
+  const replyPlan = payload?.replyPlan;
+
+  if (!replyPlan || typeof replyPlan !== "object") {
+    return undefined;
+  }
+
+  const replyPlanRecord = replyPlan as Record<string, unknown>;
+  const replyMode =
+    typeof replyPlanRecord.replyMode === "string"
+      ? (replyPlanRecord.replyMode as ReplyMode)
+      : undefined;
+  const targetReplyCount =
+    typeof replyPlanRecord.targetReplyCount === "number"
+      ? replyPlanRecord.targetReplyCount
+      : undefined;
+  const personaGroup =
+    typeof replyPlanRecord.personaGroup === "string" ? replyPlanRecord.personaGroup : "";
+
+  if (!replyMode || !targetReplyCount) {
+    return undefined;
+  }
+
+  return {
+    replyMode,
+    targetReplyCount,
+    personaGroup
+  };
+}
+
 export async function processNextAiReplyJob(
   options: ProcessAiReplyJobOptions = {}
 ): Promise<ProcessAiReplyJobResult> {
@@ -54,9 +90,35 @@ export async function processNextAiReplyJob(
   }
 
   const sourceText = normalizeBodyLines(claimedJob.sourceComment.bodyLines).join("\n");
-  const replyPlan = buildMockReplyPlan({
+  const payloadObject = normalizeReplyProviderPayload(claimedJob.payload);
+  const replyProviderConfig = resolveAiReplyProviderConfigFromPayload(payloadObject);
+  const replyPlanFromPayload = readReplyPlanFromPayload(payloadObject);
+  const replyPlan = await generateReplyPlan({
     text: sourceText,
-    replyToDisplayNo: claimedJob.sourceComment.displayNo
+    replyToDisplayNo: claimedJob.sourceComment.displayNo,
+    article: {
+      id: claimedJob.article.id,
+      slug: claimedJob.article.slug,
+      title: claimedJob.article.title,
+      category: claimedJob.article.category
+    },
+    sourceComment: {
+      id: claimedJob.sourceComment.id,
+      displayNo: claimedJob.sourceComment.displayNo,
+      authorName: claimedJob.sourceComment.authorName,
+      bodyLines: normalizeBodyLines(claimedJob.sourceComment.bodyLines)
+    },
+    provider: replyProviderConfig.provider,
+    model: replyProviderConfig.model,
+    replyPlan:
+      replyPlanFromPayload ??
+      (claimedJob.replyMode
+        ? {
+            replyMode: claimedJob.replyMode,
+            targetReplyCount: claimedJob.targetReplyCount,
+            personaGroup: ""
+          }
+        : undefined)
   });
 
   try {
