@@ -5,9 +5,9 @@ import { RankingSidebar } from "@/components/ranking-sidebar";
 import { articles, getArticleBySlug } from "@/lib/mock-data";
 
 type ArticlePageProps = {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 };
 
 export function generateStaticParams() {
@@ -16,8 +16,9 @@ export function generateStaticParams() {
   }));
 }
 
-export function generateMetadata({ params }: ArticlePageProps) {
-  const article = getArticleBySlug(params.slug);
+export async function generateMetadata({ params }: ArticlePageProps) {
+  const { slug } = await params;
+  const article = getArticleBySlug(slug);
 
   if (!article) {
     return {
@@ -31,8 +32,9 @@ export function generateMetadata({ params }: ArticlePageProps) {
   };
 }
 
-export default function ArticlePage({ params }: ArticlePageProps) {
-  const article = getArticleBySlug(params.slug);
+export default async function ArticlePage({ params }: ArticlePageProps) {
+  const { slug } = await params;
+  const article = getArticleBySlug(slug);
 
   if (!article) {
     notFound();
