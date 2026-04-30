@@ -93,35 +93,36 @@ export async function processNextAiReplyJob(
   const payloadObject = normalizeReplyProviderPayload(claimedJob.payload);
   const replyProviderConfig = resolveAiReplyProviderConfigFromPayload(payloadObject);
   const replyPlanFromPayload = readReplyPlanFromPayload(payloadObject);
-  const replyPlan = await generateReplyPlan({
-    text: sourceText,
-    replyToDisplayNo: claimedJob.sourceComment.displayNo,
-    article: {
-      id: claimedJob.article.id,
-      slug: claimedJob.article.slug,
-      title: claimedJob.article.title,
-      category: claimedJob.article.category
-    },
-    sourceComment: {
-      id: claimedJob.sourceComment.id,
-      displayNo: claimedJob.sourceComment.displayNo,
-      authorName: claimedJob.sourceComment.authorName,
-      bodyLines: normalizeBodyLines(claimedJob.sourceComment.bodyLines)
-    },
-    provider: replyProviderConfig.provider,
-    model: replyProviderConfig.model,
-    replyPlan:
-      replyPlanFromPayload ??
-      (claimedJob.replyMode
-        ? {
-            replyMode: claimedJob.replyMode,
-            targetReplyCount: claimedJob.targetReplyCount,
-            personaGroup: ""
-          }
-        : undefined)
-  });
 
   try {
+    const replyPlan = await generateReplyPlan({
+      text: sourceText,
+      replyToDisplayNo: claimedJob.sourceComment.displayNo,
+      article: {
+        id: claimedJob.article.id,
+        slug: claimedJob.article.slug,
+        title: claimedJob.article.title,
+        category: claimedJob.article.category
+      },
+      sourceComment: {
+        id: claimedJob.sourceComment.id,
+        displayNo: claimedJob.sourceComment.displayNo,
+        authorName: claimedJob.sourceComment.authorName,
+        bodyLines: normalizeBodyLines(claimedJob.sourceComment.bodyLines)
+      },
+      provider: replyProviderConfig.provider,
+      model: replyProviderConfig.model,
+      replyPlan:
+        replyPlanFromPayload ??
+        (claimedJob.replyMode
+          ? {
+              replyMode: claimedJob.replyMode,
+              targetReplyCount: claimedJob.targetReplyCount,
+              personaGroup: ""
+            }
+          : undefined)
+    });
+
     const result = await client.$transaction(
       async (tx) => {
         const startDisplayNo = await getNextDisplayNoForArticle(tx, claimedJob.articleId);

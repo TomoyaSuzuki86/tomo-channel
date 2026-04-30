@@ -51,14 +51,17 @@ type OpenAiReplyPayload = {
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
+const READER_ROLE = "\u8aad\u8005";
+const THINKING_LABEL = "\u30b9\u30ec\u6c11\u304c\u53cd\u5fdc\u4e2d...";
+
 const ALLOWED_PERSONAS: AllowedPersona[] = [
-  { authorName: "名無しのニュース民", shortId: "news_line" },
-  { authorName: "名無しのエンジニア", shortId: "engineer_42" },
-  { authorName: "名無しの実務民", shortId: "field_82" },
-  { authorName: "名無しの懐疑民", shortId: "skeptic777" },
-  { authorName: "名無しの詳しい人", shortId: "detail_12" },
-  { authorName: "名無しのn8n民", shortId: "n8n_bot" },
-  { authorName: "名無しの家計民", shortId: "budget_31" }
+  { authorName: "\u540d\u7121\u3057\u306e\u30cb\u30e5\u30fc\u30b9\u6c11", shortId: "news_line" },
+  { authorName: "\u540d\u7121\u3057\u306e\u30a8\u30f3\u30b8\u30cb\u30a2", shortId: "engineer_42" },
+  { authorName: "\u540d\u7121\u3057\u306e\u5b9f\u52d9\u6c11", shortId: "field_82" },
+  { authorName: "\u540d\u7121\u3057\u306e\u61d0\u7591\u6c11", shortId: "skeptic777" },
+  { authorName: "\u540d\u7121\u3057\u306e\u8a73\u3057\u3044\u4eba", shortId: "detail_12" },
+  { authorName: "\u540d\u7121\u3057\u306en8n\u6c11", shortId: "n8n_bot" },
+  { authorName: "\u540d\u7121\u3057\u306e\u5bb6\u8a08\u6c11", shortId: "budget_31" }
 ];
 
 const replyModeValues: ReplyMode[] = [
@@ -133,7 +136,7 @@ export function resolveAiReplyProviderConfigFromPayload(
     providerSource && typeof providerSource.model === "string" ? providerSource.model : "";
 
   return {
-    provider: rawProvider.trim().toLowerCase() === "openai" ? "openai" : "mock",
+    provider: rawProvider.trim() ? resolveAiReplyProviderName(rawProvider) : resolveAiReplyProviderName(),
     model: rawModel.trim() || resolveAiReplyModel()
   };
 }
@@ -184,7 +187,7 @@ function buildOpenAiSchema() {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["bodyLines"],
+          required: ["authorName", "authorRole", "shortId", "bodyLines"],
           properties: {
             authorName: {
               type: "string",
@@ -290,14 +293,14 @@ function toReplyPlan(payload: OpenAiReplyPayload, context: ReplyGenerationContex
       aiGenerated: true as const,
       replyMode: payload.replyMode,
       authorName: persona.authorName,
-      authorRole: "読者",
+      authorRole: READER_ROLE,
       shortId: persona.shortId,
       bodyLines: ensureReplyReferenceLine(context.replyToDisplayNo, comment.bodyLines)
     };
   });
 
   return {
-    thinkingLabel: "スレ民が反応中...",
+    thinkingLabel: THINKING_LABEL,
     replyMode: payload.replyMode,
     replyCount: replyDrafts.length,
     personaPool: replyDrafts.map((draft) => ({
