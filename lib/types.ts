@@ -17,12 +17,16 @@ export type Source = {
 };
 
 export type CommentType = "user" | "ai" | "editor";
+export type ReplyMode = "single" | "multi" | "debate" | "explain" | "fact_check" | "joke";
 
 export type Comment = {
   id: string;
   articleId: string;
   displayNo: number;
   parentCommentId?: string;
+  replyToDisplayNo?: number;
+  replyMode?: ReplyMode;
+  isPending?: boolean;
   authorName: string;
   authorRole: string;
   shortId: string;

@@ -1,8 +1,12 @@
 "use client";
 
 import { Flag, Heart, RefreshCw, Reply, Send } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AiReplyPreview } from "@/components/ai-reply-preview";
+import { CommentBody } from "@/components/comment-body";
+import { ThinkingCommentCard } from "@/components/thinking-comment-card";
 import { formatDateTime } from "@/lib/format";
+import { buildMockReplyPlan, materializeReplyDrafts } from "@/lib/reply-generator";
 import type { Comment } from "@/lib/types";
 
 type CommentThreadProps = {
@@ -10,29 +14,30 @@ type CommentThreadProps = {
   initialComments: Comment[];
 };
 
-function renderBodyLine(line: string) {
-  const parts = line.split(/(>>\d+)/g);
-
-  return parts.map((part, index) => {
-    if (/^>>\d+$/.test(part)) {
-      return (
-        <span className="font-black text-blue-700" key={`${part}-${index}`}>
-          {part}
-        </span>
-      );
-    }
-
-    return <span key={`${part}-${index}`}>{part}</span>;
-  });
-}
+type PendingReply = {
+  anchorDisplayNo: number;
+  label: string;
+  replyMode: Comment["replyMode"];
+};
 
 export function CommentThread({ articleId, initialComments }: CommentThreadProps) {
-  const [comments, setComments] = useState<Comment[]>(initialComments);
+  const [comments, setComments] = useState<Comment[]>(
+    [...initialComments].sort((first, second) => first.displayNo - second.displayNo)
+  );
   const [body, setBody] = useState("");
+  const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([]);
+  const timerIdsRef = useRef<number[]>([]);
 
   const nextDisplayNo = useMemo(
     () => comments.reduce((max, comment) => Math.max(max, comment.displayNo), 0) + 1,
     [comments]
+  );
+
+  useEffect(
+    () => () => {
+      timerIdsRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    },
+    []
   );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -44,10 +49,16 @@ export function CommentThread({ articleId, initialComments }: CommentThreadProps
     }
 
     const now = new Date();
+    const replyPlan = buildMockReplyPlan({
+      text: trimmed,
+      replyToDisplayNo: nextDisplayNo
+    });
     const newComment: Comment = {
       id: `local-${now.getTime()}`,
       articleId,
       displayNo: nextDisplayNo,
+      replyToDisplayNo: undefined,
+      replyMode: "single",
       authorName: "名無しのとも民",
       authorRole: "読者",
       shortId: `local_${Math.random().toString(36).slice(2, 6)}`,
@@ -60,7 +71,34 @@ export function CommentThread({ articleId, initialComments }: CommentThreadProps
     };
 
     setComments((current) => [...current, newComment]);
+    setPendingReplies((current) => [
+      ...current,
+      {
+        anchorDisplayNo: nextDisplayNo,
+        label: replyPlan.thinkingLabel,
+        replyMode: replyPlan.replyMode
+      }
+    ]);
     setBody("");
+
+    const timerId = window.setTimeout(() => {
+      setComments((current) => {
+        const startDisplayNo = current.reduce((max, comment) => Math.max(max, comment.displayNo), 0) + 1;
+        const materializedReplies = materializeReplyDrafts({
+          articleId,
+          parentCommentId: newComment.id,
+          replyToDisplayNo: newComment.displayNo,
+          startDisplayNo,
+          replyDrafts: replyPlan.replyDrafts
+        });
+
+        return [...current, ...materializedReplies];
+      });
+
+      setPendingReplies((current) => current.filter((pending) => pending.anchorDisplayNo !== newComment.displayNo));
+    }, 1200 + Math.floor(Math.random() * 700));
+
+    timerIdsRef.current.push(timerId);
   }
 
   return (
@@ -100,26 +138,28 @@ export function CommentThread({ articleId, initialComments }: CommentThreadProps
       </form>
 
       <ol className="divide-y divide-zinc-200">
-        {comments.map((comment) => (
+        {comments
+          .slice()
+          .sort((first, second) => first.displayNo - second.displayNo)
+          .map((comment) => (
           <li className="p-4" key={comment.id}>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-              <span className="font-black text-zinc-950">{comment.displayNo}</span>
-              <span className="font-black text-zinc-950">:</span>
-              <span className="font-black text-zinc-950">{comment.authorName}</span>
-              <time className="font-bold text-zinc-500">{formatDateTime(comment.createdAt)}</time>
-              <span className="font-bold text-zinc-500">ID:{comment.shortId}</span>
-              {comment.aiGenerated ? (
-                <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-black leading-none text-zinc-600">
-                  AI
-                </span>
-              ) : null}
-            </div>
+            {comment.aiGenerated ? (
+              <AiReplyPreview comment={comment} />
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                  <span className="font-black text-zinc-950">{comment.displayNo}</span>
+                  <span className="font-black text-zinc-950">:</span>
+                  <span className="font-black text-zinc-950">{comment.authorName}</span>
+                  <time className="font-bold text-zinc-500">{formatDateTime(comment.createdAt)}</time>
+                  <span className="font-bold text-zinc-500">ID:{comment.shortId}</span>
+                </div>
 
-            <div className="mt-3 space-y-1 pl-0 text-[15px] font-medium leading-8 text-zinc-800 sm:pl-8">
-              {comment.bodyLines.map((line, index) => (
-                <p key={`${comment.id}-${index}`}>{renderBodyLine(line)}</p>
-              ))}
-            </div>
+                <div className="mt-3 space-y-1 pl-0 text-[15px] font-medium leading-8 text-zinc-800 sm:pl-8">
+                  <CommentBody bodyLines={comment.bodyLines} />
+                </div>
+              </>
+            )}
 
             <div className="mt-3 flex flex-wrap items-center justify-end gap-4 text-xs font-bold text-zinc-500">
               <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
@@ -135,8 +175,20 @@ export function CommentThread({ articleId, initialComments }: CommentThreadProps
                 通報
               </button>
             </div>
+
+            <div className="mt-3 space-y-2 pl-0 sm:pl-8">
+              {pendingReplies
+                .filter((pendingReply) => pendingReply.anchorDisplayNo === comment.displayNo)
+                .map((pendingReply) => (
+                  <ThinkingCommentCard
+                    key={`${comment.id}-${pendingReply.anchorDisplayNo}`}
+                    label={pendingReply.label}
+                    replyMode={pendingReply.replyMode}
+                  />
+                ))}
+            </div>
           </li>
-        ))}
+          ))}
       </ol>
     </section>
   );
