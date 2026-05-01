@@ -5,6 +5,7 @@ node_modules
 out
 tomo-*.png
 dist
+.next-dev.log
 .env
 .env*
 !.env.example

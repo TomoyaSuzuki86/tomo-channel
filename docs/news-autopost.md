@@ -22,6 +22,19 @@ The first MVP covers these categories:
 
 The workflow is designed so each category can produce up to one article per run, for a total of up to three articles.
 
+## Current Production Schedule
+
+The current production setup is intentionally narrow:
+
+- `it-trend` only is enabled
+- `japan` is disabled
+- `world` is disabled
+- primary source is `GitHub Blog`
+- schedule runs every day at `07:00 JST`
+- the workflow stays under one article per run
+
+Keep the workflow inactive until the manual run is green, then activate it in n8n.
+
 ## Required Environment Variables
 
 Set these values in n8n:
@@ -105,11 +118,14 @@ Before switching to daily automation, run the workflow manually once.
 
 After a successful manual run:
 
-1. Edit the schedule node in n8n.
-2. Choose the local morning time you want.
-3. Keep the RSS URLs and prompt settings stable.
-4. Leave the workflow disabled until the first manual test is green.
-5. Enable the workflow once the article and comment pipeline are verified.
+1. Open the workflow in n8n.
+2. Confirm the `Schedule Trigger` is set to `0 7 * * *`.
+3. Confirm the workflow timezone is `Asia/Tokyo`.
+4. Keep `it-trend` enabled and leave `japan` / `world` disabled.
+5. Leave the workflow inactive until the last manual check is green.
+6. Turn the workflow active once the article and comment pipeline are verified.
+
+To stop the schedule, switch the workflow back to inactive in n8n. That is the fastest rollback if a generated article looks off.
 
 ## First Manual Run Notes
 
@@ -122,6 +138,17 @@ Record the first production-style manual run here so the next person can repeat 
 - Admin API result: `201 Created` with `ok: true`, `sourceCount: 3`, and `initialEditorCommentCreated: true`
 - AI reply sweep result: `POST /api/jobs/process-ai-reply` returned `200` with `processed: true` and `createdCommentCount: 1`
 - Notes: Manual Trigger run succeeded on n8n execution `#12`; the article page loaded on App Hosting and the initial editor comment was present.
+
+## Schedule Enable Notes
+
+Add the first schedule activation details here once the daily run is turned on.
+
+- Enabled date: 2026-05-02
+- Run time: `07:00 JST`
+- Enabled category: `it-trend`
+- Primary source: `GitHub Blog`
+- First schedule check: confirm the next morning's n8n execution history and the corresponding App Hosting article page
+- Stop method: set the workflow back to inactive in n8n
 
 ## Conflict Handling
 

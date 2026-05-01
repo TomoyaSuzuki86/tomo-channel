@@ -109,6 +109,47 @@ or:
 9. Process one n8n job.
 10. Confirm the UI refresh shows the AI reply.
 
+## Daily Autopost Checklist
+
+Use this checklist when the morning autopost schedule is active:
+
+1. Confirm the workflow is still active in n8n.
+2. Confirm `it-trend` is the only enabled category.
+3. Confirm the primary source is still `GitHub Blog`.
+4. Check the most recent n8n execution for `201` or `409` on article creation.
+5. If an article was created, confirm the App Hosting article page renders.
+6. Confirm the AI reply sweep ended with either `processed:true` or `processed:false` and `no-queued-job`.
+7. If anything looks suspicious, switch the workflow back to inactive first, then investigate.
+
+## Failure Triage
+
+Treat these statuses like this:
+
+- `401` from `/api/admin/articles`: the admin secret is missing or wrong.
+- `409` from `/api/admin/articles`: the slug already exists; skip it.
+- `429` from `/api/comments`: the post guardrails blocked a repeat submission.
+- `500` from `/api/admin/articles` or `/api/comments`: check App Hosting, Cloud SQL, and payload validation.
+- `Unauthorized.` from `/api/jobs/process-ai-reply`: the job secret is missing or wrong.
+- `processed:false` with `no-queued-job`: normal, no work was waiting.
+- OpenAI failures should mark the job as failed and store `lastError`.
+
+## Cost Checks
+
+Watch these items during the first few days:
+
+- OpenAI token usage for article generation
+- OpenAI token usage for reply generation
+- App Hosting request count and error rate
+- Cloud SQL connection count and latency
+- n8n execution count and failures
+
+## Logs To Check
+
+- App Hosting logs in the Firebase / Google Cloud console
+- Cloud SQL logs in the Google Cloud console
+- n8n execution history in the workflow editor
+- OpenAI usage and API error logs in the OpenAI dashboard
+
 ## Failure Hints
 
 - `Unauthorized.`: n8n secret header does not match `JOB_PROCESS_SECRET`.
