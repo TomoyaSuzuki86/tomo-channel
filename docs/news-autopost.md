@@ -111,6 +111,18 @@ After a successful manual run:
 4. Leave the workflow disabled until the first manual test is green.
 5. Enable the workflow once the article and comment pipeline are verified.
 
+## First Manual Run Notes
+
+Record the first production-style manual run here so the next person can repeat it without guessing.
+
+- Date: 2026-05-01
+- Primary source: GitHub Blog
+- Created slug: `the-github-blog-github-copilot-cli-beginners-interactive-vs-non-interactive`
+- Article URL: https://tomo-channel--tomo-channel-app.asia-east1.hosted.app/articles/the-github-blog-github-copilot-cli-beginners-interactive-vs-non-interactive
+- Admin API result: `201 Created` with `ok: true`, `sourceCount: 3`, and `initialEditorCommentCreated: true`
+- AI reply sweep result: `POST /api/jobs/process-ai-reply` returned `200` with `processed: true` and `createdCommentCount: 1`
+- Notes: Manual Trigger run succeeded on n8n execution `#12`; the article page loaded on App Hosting and the initial editor comment was present.
+
 ## Conflict Handling
 
 `409 Conflict` from `POST /api/admin/articles` is not an error in this workflow.
