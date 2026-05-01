@@ -31,10 +31,21 @@ type CommentApiResponse = {
   };
 };
 
+type CommentListApiResponse = {
+  ok: boolean;
+  error?: string;
+  comments?: Comment[];
+};
+
+const DB_POLL_INTERVAL_MS = 3000;
+const DB_POLL_MAX_ATTEMPTS = 8;
+
+function sortComments(comments: Comment[]) {
+  return [...comments].sort((first, second) => first.displayNo - second.displayNo);
+}
+
 export function CommentThread({ articleId, dbBackedMode = false, initialComments }: CommentThreadProps) {
-  const [comments, setComments] = useState<Comment[]>(
-    [...initialComments].sort((first, second) => first.displayNo - second.displayNo)
-  );
+  const [comments, setComments] = useState<Comment[]>(sortComments(initialComments));
   const [body, setBody] = useState("");
   const [formError, setFormError] = useState("");
   const [formNotice, setFormNotice] = useState("");
@@ -54,7 +65,67 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
     []
   );
 
+  async function fetchComments() {
+    const response = await fetch(`/api/comments?articleId=${encodeURIComponent(articleId)}`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json"
+      },
+      cache: "no-store"
+    });
+    const payload = (await response.json()) as CommentListApiResponse;
+
+    if (!response.ok || !payload.ok || !payload.comments) {
+      throw new Error(payload.error ?? "コメントを更新できませんでした。");
+    }
+
+    return sortComments(payload.comments);
+  }
+
+  function startDbReplyPolling(anchorDisplayNo: number, previousAiCommentCount: number) {
+    let attempt = 0;
+
+    const poll = async () => {
+      attempt += 1;
+
+      try {
+        const latestComments = await fetchComments();
+        const latestAiCommentCount = latestComments.filter((comment) => comment.aiGenerated).length;
+        const hasNewReplyToAnchor = latestComments.some(
+          (comment) => comment.aiGenerated && comment.replyToDisplayNo === anchorDisplayNo
+        );
+
+        setComments(latestComments);
+
+        if (hasNewReplyToAnchor || latestAiCommentCount > previousAiCommentCount) {
+          setPendingReplies((current) =>
+            current.filter((pending) => pending.anchorDisplayNo !== anchorDisplayNo)
+          );
+          setFormNotice("AI返信を更新しました。");
+          return;
+        }
+
+        if (attempt >= DB_POLL_MAX_ATTEMPTS) {
+          setFormNotice("返信はまだありません。あとで更新すると反映されます。");
+          return;
+        }
+      } catch {
+        if (attempt >= DB_POLL_MAX_ATTEMPTS) {
+          setFormNotice("返信の確認に失敗しました。あとで更新してください。");
+          return;
+        }
+      }
+
+      const timerId = window.setTimeout(poll, DB_POLL_INTERVAL_MS);
+      timerIdsRef.current.push(timerId);
+    };
+
+    const timerId = window.setTimeout(poll, DB_POLL_INTERVAL_MS);
+    timerIdsRef.current.push(timerId);
+  }
+
   async function submitToDatabase(trimmed: string) {
+    const previousAiCommentCount = comments.filter((comment) => comment.aiGenerated).length;
     const response = await fetch("/api/comments", {
       method: "POST",
       headers: {
@@ -71,13 +142,27 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
       throw new Error(payload.error ?? "コメントを投稿できませんでした。");
     }
 
-    setComments((current) => [...current, payload.comment as Comment]);
+    const createdComment = payload.comment;
+
+    setComments((current) => sortComments([...current, createdComment]));
     setFormNotice(
       payload.aiReplyJob?.status === "queued"
-        ? "投稿しました。AI返信ジョブを受け付けました。"
+        ? "投稿しました。スレ民が反応中..."
         : "投稿しました。"
     );
     setBody("");
+
+    if (payload.aiReplyJob?.status === "queued") {
+      setPendingReplies((current) => [
+        ...current,
+        {
+          anchorDisplayNo: createdComment.displayNo,
+          label: "スレ民が反応中...",
+          replyMode: "explain"
+        }
+      ]);
+      startDbReplyPolling(createdComment.displayNo, previousAiCommentCount);
+    }
   }
 
   function submitToLocalState(trimmed: string) {
@@ -161,6 +246,22 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
     }
   }
 
+  async function handleRefreshComments() {
+    if (!dbBackedMode) {
+      return;
+    }
+
+    setFormError("");
+
+    try {
+      const latestComments = await fetchComments();
+      setComments(latestComments);
+      setFormNotice("コメントを更新しました。");
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "コメントを更新できませんでした。");
+    }
+  }
+
   return (
     <section className="rounded-lg border border-zinc-200 bg-white shadow-soft">
       <div className="flex flex-col gap-3 border-b border-zinc-200 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -171,7 +272,12 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
           <button className="inline-flex h-9 items-center gap-1 rounded-md border border-zinc-200 px-3 text-xs font-black text-zinc-700 hover:bg-zinc-50">
             新着順
           </button>
-          <button className="inline-flex h-9 items-center gap-1 rounded-md border border-zinc-200 px-3 text-xs font-black text-zinc-700 hover:bg-zinc-50">
+          <button
+            className="inline-flex h-9 items-center gap-1 rounded-md border border-zinc-200 px-3 text-xs font-black text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-300"
+            disabled={!dbBackedMode}
+            onClick={handleRefreshComments}
+            type="button"
+          >
             <RefreshCw className="h-4 w-4" />
             更新
           </button>
@@ -210,57 +316,54 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
       </form>
 
       <ol className="divide-y divide-zinc-200">
-        {comments
-          .slice()
-          .sort((first, second) => first.displayNo - second.displayNo)
-          .map((comment) => (
-            <li className="p-4" key={comment.id}>
-              {comment.aiGenerated ? (
-                <AiReplyPreview comment={comment} />
-              ) : (
-                <>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                    <span className="font-black text-zinc-950">{comment.displayNo}</span>
-                    <span className="font-black text-zinc-950">:</span>
-                    <span className="font-black text-zinc-950">{comment.authorName}</span>
-                    <time className="font-bold text-zinc-500">{formatDateTime(comment.createdAt)}</time>
-                    <span className="font-bold text-zinc-500">ID:{comment.shortId}</span>
-                  </div>
+        {sortComments(comments).map((comment) => (
+          <li className="p-4" key={comment.id}>
+            {comment.aiGenerated ? (
+              <AiReplyPreview comment={comment} />
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                  <span className="font-black text-zinc-950">{comment.displayNo}</span>
+                  <span className="font-black text-zinc-950">:</span>
+                  <span className="font-black text-zinc-950">{comment.authorName}</span>
+                  <time className="font-bold text-zinc-500">{formatDateTime(comment.createdAt)}</time>
+                  <span className="font-bold text-zinc-500">ID:{comment.shortId}</span>
+                </div>
 
-                  <div className="mt-3 space-y-1 pl-0 text-[15px] font-medium leading-8 text-zinc-800 sm:pl-8">
-                    <CommentBody bodyLines={comment.bodyLines} />
-                  </div>
-                </>
-              )}
+                <div className="mt-3 space-y-1 pl-0 text-[15px] font-medium leading-8 text-zinc-800 sm:pl-8">
+                  <CommentBody bodyLines={comment.bodyLines} />
+                </div>
+              </>
+            )}
 
-              <div className="mt-3 flex flex-wrap items-center justify-end gap-4 text-xs font-bold text-zinc-500">
-                <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
-                  <Reply className="h-3.5 w-3.5" />
-                  返信
-                </button>
-                <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
-                  <Heart className="h-3.5 w-3.5" />
-                  いいね {comment.likeCount}
-                </button>
-                <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
-                  <Flag className="h-3.5 w-3.5" />
-                  通報
-                </button>
-              </div>
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-4 text-xs font-bold text-zinc-500">
+              <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
+                <Reply className="h-3.5 w-3.5" />
+                返信
+              </button>
+              <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
+                <Heart className="h-3.5 w-3.5" />
+                いいね {comment.likeCount}
+              </button>
+              <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
+                <Flag className="h-3.5 w-3.5" />
+                通報
+              </button>
+            </div>
 
-              <div className="mt-3 space-y-2 pl-0 sm:pl-8">
-                {pendingReplies
-                  .filter((pendingReply) => pendingReply.anchorDisplayNo === comment.displayNo)
-                  .map((pendingReply) => (
-                    <ThinkingCommentCard
-                      key={`${comment.id}-${pendingReply.anchorDisplayNo}`}
-                      label={pendingReply.label}
-                      replyMode={pendingReply.replyMode}
-                    />
-                  ))}
-              </div>
-            </li>
-          ))}
+            <div className="mt-3 space-y-2 pl-0 sm:pl-8">
+              {pendingReplies
+                .filter((pendingReply) => pendingReply.anchorDisplayNo === comment.displayNo)
+                .map((pendingReply) => (
+                  <ThinkingCommentCard
+                    key={`${comment.id}-${pendingReply.anchorDisplayNo}`}
+                    label={pendingReply.label}
+                    replyMode={pendingReply.replyMode}
+                  />
+                ))}
+            </div>
+          </li>
+        ))}
       </ol>
     </section>
   );

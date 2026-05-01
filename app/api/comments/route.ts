@@ -5,6 +5,7 @@ import { resolveAiReplyProviderConfig } from "@/lib/ai/reply-provider";
 import type { ReplyMode } from "@/lib/types";
 
 export const runtime = "nodejs";
+export const dynamic = "force-static";
 
 type CommentRequestBody = {
   articleId?: unknown;
@@ -86,6 +87,39 @@ function buildErrorResponse(status: number, message: string) {
 
 function makeShortId() {
   return randomBytes(4).toString("hex");
+}
+
+export async function GET(request: Request) {
+  if (!process.env.DATABASE_URL) {
+    return buildErrorResponse(
+      500,
+      "DATABASE_URL is required for /api/comments. Copy .env.example to .env and start PostgreSQL first."
+    );
+  }
+
+  const { searchParams } = new URL(request.url);
+  const articleId = searchParams.get("articleId")?.trim() ?? "";
+
+  if (!articleId) {
+    return buildErrorResponse(400, "articleId is required.");
+  }
+
+  const { getArticleById } = await import("@/lib/repositories/article-repository");
+  const { listCommentsByArticleId } = await import("@/lib/repositories/comment-repository");
+
+  const article = await getArticleById(articleId);
+
+  if (!article) {
+    return buildErrorResponse(404, "Article not found.");
+  }
+
+  const comments = await listCommentsByArticleId(articleId);
+
+  return buildResponseJson(200, {
+    ok: true,
+    articleId,
+    comments
+  });
 }
 
 function buildAiReplyPayload(options: {

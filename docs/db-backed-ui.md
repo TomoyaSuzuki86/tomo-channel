@@ -75,3 +75,31 @@ POST /api/jobs/process-ai-reply
 ```
 
 That endpoint is still triggered manually or by n8n.
+
+## Comment Refresh
+
+v1.7.0 adds a read-only comments endpoint:
+
+```text
+GET /api/comments?articleId=...
+```
+
+The endpoint returns comments ordered by `displayNo`.
+
+In App Hosting `dbBackedMode`, the browser uses this endpoint after a successful comment post:
+
+1. User submits a comment through `POST /api/comments`.
+2. The API stores the user comment and creates a queued `AiReplyJob`.
+3. The UI shows `スレ民が反応中...`.
+4. The browser polls `GET /api/comments?articleId=...` every few seconds for a limited number of attempts.
+5. If n8n processes the queued job and inserts AI comments, the next poll updates the visible thread.
+
+The browser does not call:
+
+```text
+POST /api/jobs/process-ai-reply
+```
+
+`JOB_PROCESS_SECRET` stays server-side and is never exposed to client code.
+
+Static Firebase Hosting still uses local state plus mock AI replies and does not call the comments API.
