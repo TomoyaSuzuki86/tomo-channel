@@ -12,6 +12,10 @@ For Firebase App Hosting smoke tests, use:
 
 `n8n/workflows/process-ai-reply.app-hosting.example.json`
 
+For production App Hosting operations, use:
+
+`n8n/workflows/process-ai-reply.production.example.json`
+
 It uses the minimal pattern:
 
 1. Manual Trigger

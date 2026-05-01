@@ -8,6 +8,28 @@ export const runtime = "nodejs";
 export const revalidate = false;
 export const fetchCache = "force-no-store";
 
+const COMMENT_MAX_LENGTH = 500;
+const COMMENT_MAX_LINES = 20;
+const COMMENT_RATE_LIMIT_WINDOW_MS = 60_000;
+const COMMENT_RATE_LIMIT_MAX_POSTS = 5;
+const COMMENT_MIN_INTERVAL_MS = 8_000;
+const COMMENT_DUPLICATE_WINDOW_MS = 120_000;
+
+type CommentRateLimitRecord = {
+  timestamps: number[];
+  lastBodyFingerprint?: string;
+  lastBodyAt?: number;
+};
+
+const globalForCommentRateLimit = globalThis as unknown as {
+  commentRateLimitStore?: Map<string, CommentRateLimitRecord>;
+};
+
+const commentRateLimitStore =
+  globalForCommentRateLimit.commentRateLimitStore ?? new Map<string, CommentRateLimitRecord>();
+
+globalForCommentRateLimit.commentRateLimitStore = commentRateLimitStore;
+
 type CommentRequestBody = {
   articleId?: unknown;
   body?: unknown;
@@ -27,11 +49,81 @@ function toPositiveInteger(value: unknown) {
   return value;
 }
 
+function normalizeCommentBody(body: string) {
+  return body
+    .replace(/\u3000/g, " ")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join("\n")
+    .trim();
+}
+
 function splitBodyLines(body: string) {
   return body
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
+}
+
+function getClientKey(request: Request, articleId: string) {
+  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  const cloudflareIp = request.headers.get("cf-connecting-ip")?.trim();
+  const clientIp = forwardedFor || realIp || cloudflareIp || "unknown";
+
+  return `${clientIp}:${articleId}`;
+}
+
+function getBodyFingerprint(body: string) {
+  return body.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function checkCommentRateLimit(request: Request, articleId: string, body: string) {
+  const now = Date.now();
+  const key = getClientKey(request, articleId);
+  const record = commentRateLimitStore.get(key) ?? { timestamps: [] };
+  const recentTimestamps = record.timestamps.filter(
+    (timestamp) => now - timestamp < COMMENT_RATE_LIMIT_WINDOW_MS
+  );
+  const lastTimestamp = recentTimestamps.at(-1);
+  const bodyFingerprint = getBodyFingerprint(body);
+  const isDuplicate =
+    record.lastBodyFingerprint === bodyFingerprint &&
+    typeof record.lastBodyAt === "number" &&
+    now - record.lastBodyAt < COMMENT_DUPLICATE_WINDOW_MS;
+
+  if (typeof lastTimestamp === "number" && now - lastTimestamp < COMMENT_MIN_INTERVAL_MS) {
+    return {
+      ok: false,
+      message: "Please wait a few seconds before posting another comment."
+    };
+  }
+
+  if (recentTimestamps.length >= COMMENT_RATE_LIMIT_MAX_POSTS) {
+    return {
+      ok: false,
+      message: "Too many comments. Please wait a minute and try again."
+    };
+  }
+
+  if (isDuplicate) {
+    return {
+      ok: false,
+      message: "Duplicate comment detected. Please edit the text before posting again."
+    };
+  }
+
+  commentRateLimitStore.set(key, {
+    timestamps: [...recentTimestamps, now],
+    lastBodyFingerprint: bodyFingerprint,
+    lastBodyAt: now
+  });
+
+  return {
+    ok: true,
+    message: ""
+  };
 }
 
 function inferReplyPlan(body: string): {
@@ -84,6 +176,16 @@ function buildErrorResponse(status: number, message: string) {
     ok: false,
     error: message
   });
+}
+
+function logCommentApiError(message: string, context: Record<string, unknown> = {}) {
+  console.error(
+    JSON.stringify({
+      scope: "api.comments",
+      message,
+      ...context
+    })
+  );
 }
 
 function makeShortId() {
@@ -179,7 +281,7 @@ export async function POST(request: Request) {
   }
 
   const articleId = isString(body.articleId) ? body.articleId.trim() : "";
-  const rawBody = isString(body.body) ? body.body.trim() : "";
+  const rawBody = isString(body.body) ? normalizeCommentBody(body.body) : "";
   const parentCommentId = isString(body.parentCommentId) ? body.parentCommentId.trim() : undefined;
   const replyToDisplayNo = toPositiveInteger(body.replyToDisplayNo);
 
@@ -191,14 +293,28 @@ export async function POST(request: Request) {
     return buildErrorResponse(400, "body is required.");
   }
 
-  if (rawBody.length > 1000) {
-    return buildErrorResponse(400, "body must be 1000 characters or less.");
+  if (rawBody.length < 2) {
+    return buildErrorResponse(400, "body must be at least 2 characters.");
+  }
+
+  if (rawBody.length > COMMENT_MAX_LENGTH) {
+    return buildErrorResponse(400, `body must be ${COMMENT_MAX_LENGTH} characters or less.`);
   }
 
   const bodyLines = splitBodyLines(rawBody);
 
   if (!bodyLines.length) {
     return buildErrorResponse(400, "body must contain at least one non-empty line.");
+  }
+
+  if (bodyLines.length > COMMENT_MAX_LINES) {
+    return buildErrorResponse(400, `body must be ${COMMENT_MAX_LINES} lines or less.`);
+  }
+
+  const rateLimit = checkCommentRateLimit(request, articleId, rawBody);
+
+  if (!rateLimit.ok) {
+    return buildErrorResponse(429, rateLimit.message);
   }
 
   const { prisma } = await import("@/lib/prisma");
@@ -303,6 +419,11 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create comment.";
     const status = message.includes("Parent comment not found") ? 400 : 500;
+
+    logCommentApiError(message, {
+      articleId,
+      status
+    });
 
     return buildErrorResponse(status, message);
   }

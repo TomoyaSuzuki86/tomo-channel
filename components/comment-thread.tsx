@@ -289,6 +289,7 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
         <textarea
           className="min-h-24 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm font-medium leading-7 outline-none transition placeholder:text-zinc-400 focus:border-tomo-pink focus:bg-white focus:ring-4 focus:ring-pink-100 disabled:cursor-not-allowed disabled:bg-zinc-100"
           disabled={isSubmitting}
+          maxLength={500}
           onChange={(event) => setBody(event.target.value)}
           placeholder="コメントを入力（この画面だけに一時追加されます）"
           value={body}

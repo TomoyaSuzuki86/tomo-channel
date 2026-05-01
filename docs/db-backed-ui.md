@@ -61,6 +61,7 @@ Firebase App Hosting:
 - appends the returned `commentType=user` comment to the visible thread
 - creates an `AiReplyJob` with `status=queued`
 - shows a small inline error if the API request fails
+- rejects overly long, empty, duplicate, or rapid repeat comments
 
 The database write path is:
 
@@ -103,3 +104,16 @@ POST /api/jobs/process-ai-reply
 `JOB_PROCESS_SECRET` stays server-side and is never exposed to client code.
 
 Static Firebase Hosting still uses local state plus mock AI replies and does not call the comments API.
+
+## API Guardrails
+
+v1.8.0 adds minimum comment posting limits:
+
+- 500 characters maximum
+- 2 characters minimum
+- 20 non-empty lines maximum
+- short-window duplicate comment rejection
+- short-window repeat-post throttling
+- best-effort per-client/per-article rate limit
+
+These checks protect the public App Hosting endpoint without changing the static export behavior.
