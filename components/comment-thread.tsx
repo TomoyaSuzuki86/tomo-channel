@@ -11,6 +11,7 @@ import type { Comment } from "@/lib/types";
 
 type CommentThreadProps = {
   articleId: string;
+  dbBackedMode?: boolean;
   initialComments: Comment[];
 };
 
@@ -20,11 +21,24 @@ type PendingReply = {
   replyMode: Comment["replyMode"];
 };
 
-export function CommentThread({ articleId, initialComments }: CommentThreadProps) {
+type CommentApiResponse = {
+  ok: boolean;
+  error?: string;
+  comment?: Comment;
+  aiReplyJob?: {
+    id: string;
+    status: string;
+  };
+};
+
+export function CommentThread({ articleId, dbBackedMode = false, initialComments }: CommentThreadProps) {
   const [comments, setComments] = useState<Comment[]>(
     [...initialComments].sort((first, second) => first.displayNo - second.displayNo)
   );
   const [body, setBody] = useState("");
+  const [formError, setFormError] = useState("");
+  const [formNotice, setFormNotice] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingReplies, setPendingReplies] = useState<PendingReply[]>([]);
   const timerIdsRef = useRef<number[]>([]);
 
@@ -40,14 +54,33 @@ export function CommentThread({ articleId, initialComments }: CommentThreadProps
     []
   );
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitToDatabase(trimmed: string) {
+    const response = await fetch("/api/comments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        articleId,
+        body: trimmed
+      })
+    });
+    const payload = (await response.json()) as CommentApiResponse;
 
-    const trimmed = body.trim();
-    if (!trimmed) {
-      return;
+    if (!response.ok || !payload.ok || !payload.comment) {
+      throw new Error(payload.error ?? "コメントを投稿できませんでした。");
     }
 
+    setComments((current) => [...current, payload.comment as Comment]);
+    setFormNotice(
+      payload.aiReplyJob?.status === "queued"
+        ? "投稿しました。AI返信ジョブを受け付けました。"
+        : "投稿しました。"
+    );
+    setBody("");
+  }
+
+  function submitToLocalState(trimmed: string) {
     const now = new Date();
     const replyPlan = buildMockReplyPlan({
       text: trimmed,
@@ -59,7 +92,7 @@ export function CommentThread({ articleId, initialComments }: CommentThreadProps
       displayNo: nextDisplayNo,
       replyToDisplayNo: undefined,
       replyMode: "single",
-      authorName: "名無しのとも民",
+      authorName: "名無しさん",
       authorRole: "読者",
       shortId: `local_${Math.random().toString(36).slice(2, 6)}`,
       bodyLines: trimmed.split(/\r?\n/).filter(Boolean),
@@ -101,6 +134,33 @@ export function CommentThread({ articleId, initialComments }: CommentThreadProps
     timerIdsRef.current.push(timerId);
   }
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const trimmed = body.trim();
+    if (!trimmed || isSubmitting) {
+      return;
+    }
+
+    setFormError("");
+    setFormNotice("");
+
+    if (!dbBackedMode) {
+      submitToLocalState(trimmed);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await submitToDatabase(trimmed);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "コメントを投稿できませんでした。");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <section className="rounded-lg border border-zinc-200 bg-white shadow-soft">
       <div className="flex flex-col gap-3 border-b border-zinc-200 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -123,18 +183,30 @@ export function CommentThread({ articleId, initialComments }: CommentThreadProps
           匿
         </div>
         <textarea
-          className="min-h-24 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm font-medium leading-7 outline-none transition placeholder:text-zinc-400 focus:border-tomo-pink focus:bg-white focus:ring-4 focus:ring-pink-100"
+          className="min-h-24 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm font-medium leading-7 outline-none transition placeholder:text-zinc-400 focus:border-tomo-pink focus:bg-white focus:ring-4 focus:ring-pink-100 disabled:cursor-not-allowed disabled:bg-zinc-100"
+          disabled={isSubmitting}
           onChange={(event) => setBody(event.target.value)}
           placeholder="コメントを入力（この画面だけに一時追加されます）"
           value={body}
         />
         <button
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-tomo-pink px-6 text-sm font-black text-white shadow-sm hover:bg-pink-500 sm:self-start"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-tomo-pink px-6 text-sm font-black text-white shadow-sm hover:bg-pink-500 disabled:cursor-not-allowed disabled:bg-zinc-300 sm:self-start"
+          disabled={isSubmitting}
           type="submit"
         >
           <Send className="h-4 w-4" />
-          投稿する
+          {isSubmitting ? "投稿中..." : "投稿する"}
         </button>
+        {(formError || formNotice) && (
+          <p
+            className={[
+              "text-sm font-bold sm:col-start-2 sm:col-end-4",
+              formError ? "text-red-600" : "text-zinc-500"
+            ].join(" ")}
+          >
+            {formError || formNotice}
+          </p>
+        )}
       </form>
 
       <ol className="divide-y divide-zinc-200">
@@ -142,52 +214,52 @@ export function CommentThread({ articleId, initialComments }: CommentThreadProps
           .slice()
           .sort((first, second) => first.displayNo - second.displayNo)
           .map((comment) => (
-          <li className="p-4" key={comment.id}>
-            {comment.aiGenerated ? (
-              <AiReplyPreview comment={comment} />
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                  <span className="font-black text-zinc-950">{comment.displayNo}</span>
-                  <span className="font-black text-zinc-950">:</span>
-                  <span className="font-black text-zinc-950">{comment.authorName}</span>
-                  <time className="font-bold text-zinc-500">{formatDateTime(comment.createdAt)}</time>
-                  <span className="font-bold text-zinc-500">ID:{comment.shortId}</span>
-                </div>
+            <li className="p-4" key={comment.id}>
+              {comment.aiGenerated ? (
+                <AiReplyPreview comment={comment} />
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                    <span className="font-black text-zinc-950">{comment.displayNo}</span>
+                    <span className="font-black text-zinc-950">:</span>
+                    <span className="font-black text-zinc-950">{comment.authorName}</span>
+                    <time className="font-bold text-zinc-500">{formatDateTime(comment.createdAt)}</time>
+                    <span className="font-bold text-zinc-500">ID:{comment.shortId}</span>
+                  </div>
 
-                <div className="mt-3 space-y-1 pl-0 text-[15px] font-medium leading-8 text-zinc-800 sm:pl-8">
-                  <CommentBody bodyLines={comment.bodyLines} />
-                </div>
-              </>
-            )}
+                  <div className="mt-3 space-y-1 pl-0 text-[15px] font-medium leading-8 text-zinc-800 sm:pl-8">
+                    <CommentBody bodyLines={comment.bodyLines} />
+                  </div>
+                </>
+              )}
 
-            <div className="mt-3 flex flex-wrap items-center justify-end gap-4 text-xs font-bold text-zinc-500">
-              <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
-                <Reply className="h-3.5 w-3.5" />
-                返信
-              </button>
-              <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
-                <Heart className="h-3.5 w-3.5" />
-                いいね {comment.likeCount}
-              </button>
-              <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
-                <Flag className="h-3.5 w-3.5" />
-                通報
-              </button>
-            </div>
+              <div className="mt-3 flex flex-wrap items-center justify-end gap-4 text-xs font-bold text-zinc-500">
+                <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
+                  <Reply className="h-3.5 w-3.5" />
+                  返信
+                </button>
+                <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
+                  <Heart className="h-3.5 w-3.5" />
+                  いいね {comment.likeCount}
+                </button>
+                <button className="inline-flex items-center gap-1 hover:text-tomo-pink">
+                  <Flag className="h-3.5 w-3.5" />
+                  通報
+                </button>
+              </div>
 
-            <div className="mt-3 space-y-2 pl-0 sm:pl-8">
-              {pendingReplies
-                .filter((pendingReply) => pendingReply.anchorDisplayNo === comment.displayNo)
-                .map((pendingReply) => (
-                  <ThinkingCommentCard
-                    key={`${comment.id}-${pendingReply.anchorDisplayNo}`}
-                    label={pendingReply.label}
-                    replyMode={pendingReply.replyMode}
-                  />
-                ))}
-            </div>
-          </li>
+              <div className="mt-3 space-y-2 pl-0 sm:pl-8">
+                {pendingReplies
+                  .filter((pendingReply) => pendingReply.anchorDisplayNo === comment.displayNo)
+                  .map((pendingReply) => (
+                    <ThinkingCommentCard
+                      key={`${comment.id}-${pendingReply.anchorDisplayNo}`}
+                      label={pendingReply.label}
+                      replyMode={pendingReply.replyMode}
+                    />
+                  ))}
+              </div>
+            </li>
           ))}
       </ol>
     </section>

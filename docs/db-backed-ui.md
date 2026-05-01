@@ -46,12 +46,32 @@ Expected result:
 
 ## Comment Posting
 
-The visible form is still local-state only in the static UI component.
+v1.6.0 connects the visible comment form to the database only in App Hosting mode.
 
-The database write path already exists through:
+Static Firebase Hosting:
+
+- keeps the original local-state behavior
+- does not call an API
+- still shows temporary local user comments and mock AI reactions
+
+Firebase App Hosting:
+
+- passes `dbBackedMode` from the server-rendered article page
+- posts the form body to `POST /api/comments`
+- appends the returned `commentType=user` comment to the visible thread
+- creates an `AiReplyJob` with `status=queued`
+- shows a small inline error if the API request fails
+
+The database write path is:
 
 ```text
 POST /api/comments
 ```
 
-A later UI phase can switch the form from local state to this API after the Cloud SQL read path is stable.
+AI reply processing is still separate. The form does not automatically call:
+
+```text
+POST /api/jobs/process-ai-reply
+```
+
+That endpoint is still triggered manually or by n8n.
