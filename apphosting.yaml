@@ -26,6 +26,11 @@ env:
     availability:
       - RUNTIME
 
+  - variable: ADMIN_API_SECRET
+    secret: admin_api_secret
+    availability:
+      - RUNTIME
+
   - variable: AI_REPLY_PROVIDER
     value: "openai"
     availability:
