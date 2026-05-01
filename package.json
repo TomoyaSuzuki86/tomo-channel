@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "postbuild": "node scripts/prepare-firebase-export.mjs",
+    "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "db:generate": "prisma generate",
