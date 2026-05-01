@@ -5,7 +5,8 @@ import { resolveAiReplyProviderConfig } from "@/lib/ai/reply-provider";
 import type { ReplyMode } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const dynamic = "force-static";
+export const revalidate = false;
+export const fetchCache = "force-no-store";
 
 type CommentRequestBody = {
   articleId?: unknown;
