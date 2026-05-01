@@ -78,6 +78,33 @@ relation "AiReplyJob" does not exist
 
 That is a successful network connection but an uninitialized database. Apply the Prisma schema to Cloud SQL before retrying.
 
+## Dynamic Article Pages
+
+Firebase Hosting static export still prerenders article pages from `lib/mock-data.ts`.
+
+App Hosting uses the dynamic path:
+
+- `generateStaticParams()` returns no static article params when `APP_HOSTING=true`
+- article detail pages resolve by slug at request time
+- when `DATABASE_URL` is available, article and comment data come from Cloud SQL
+- if a database article is missing, the page falls back to mock data so existing static MVP URLs still render
+
+This keeps the static public site stable while allowing App Hosting to read live database comments.
+
+## AI Reply Provider
+
+Use `AI_REPLY_PROVIDER=mock` while validating App Hosting, Cloud SQL, and n8n connectivity.
+
+After that path is stable, switch App Hosting to:
+
+```yaml
+env:
+  - variable: AI_REPLY_PROVIDER
+    value: "openai"
+```
+
+`OPENAI_API_KEY` must be available as the `openai_api_key` secret before enabling this.
+
 ## Build behavior
 
 App Hosting should use the normal Next.js production build, but without the static export path.

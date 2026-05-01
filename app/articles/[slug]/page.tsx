@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
 import { CommentThread } from "@/components/comment-thread";
 import { RankingSidebar } from "@/components/ranking-sidebar";
-import { articles, getArticleBySlug } from "@/lib/mock-data";
+import { getArticleForDisplay, getStaticArticleParams } from "@/lib/article-data";
 
 type ArticlePageProps = {
   params: Promise<{
@@ -11,14 +11,12 @@ type ArticlePageProps = {
 };
 
 export function generateStaticParams() {
-  return articles.map((article) => ({
-    slug: article.slug
-  }));
+  return getStaticArticleParams();
 }
 
 export async function generateMetadata({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const article = getArticleBySlug(slug);
+  const article = await getArticleForDisplay(slug);
 
   if (!article) {
     return {
@@ -34,7 +32,7 @@ export async function generateMetadata({ params }: ArticlePageProps) {
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
   const { slug } = await params;
-  const article = getArticleBySlug(slug);
+  const article = await getArticleForDisplay(slug);
 
   if (!article) {
     notFound();
