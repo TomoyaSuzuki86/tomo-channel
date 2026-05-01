@@ -5,10 +5,9 @@ runConfig:
   cpu: 1
   memoryMiB: 512
   concurrency: 80
-
-vpcAccess:
-  connector: projects/tomo-channel-app/locations/asia-east1/connectors/tomo-channel-connector
-  egress: PRIVATE_RANGES_ONLY
+  vpcAccess:
+    connector: projects/tomo-channel-app/locations/asia-east1/connectors/tomo-channel-connector
+    egress: PRIVATE_RANGES_ONLY
 
 env:
   - variable: APP_HOSTING

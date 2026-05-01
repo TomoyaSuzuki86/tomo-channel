@@ -50,6 +50,15 @@ Suggested use:
 App Hosting runs on Cloud Run, so the database connection needs to work from the runtime container.
 For Cloud SQL, configure the backend so the App Hosting service can reach the PostgreSQL instance through VPC access.
 
+In `apphosting.yaml`, VPC access belongs under `runConfig`:
+
+```yaml
+runConfig:
+  vpcAccess:
+    connector: projects/tomo-channel-app/locations/asia-east1/connectors/tomo-channel-connector
+    egress: PRIVATE_RANGES_ONLY
+```
+
 The actual Cloud SQL instance, connector, and secret names are environment-specific.
 Keep the live connection string in Secret Manager or the Firebase console, not in the repo.
 
