@@ -54,6 +54,38 @@ Suggested placeholders:
 
 If a source is not available yet, keep the placeholder in the workflow and replace it later.
 
+## Source Selection Policy
+
+The workflow keeps a `sourceCandidates` array per category.
+
+For the first production pass:
+
+- `it-trend` is enabled
+- `japan` is disabled until manual review is done
+- `world` is disabled until manual review is done
+
+The workflow should prefer these kinds of sources:
+
+- RSS feeds from official blogs or news sites
+- HTTP endpoints that return RSS or Atom
+- manual fallback candidates only when a feed is not available yet
+
+Avoid these areas in the first run:
+
+- politics
+- disasters
+- medical claims
+- incidents and crimes
+- active conflicts
+
+The category split is:
+
+- `it-trend`: developer tools, platform updates, product engineering, and AI tooling
+- `japan`: domestic IT, public digital policy, and everyday tech
+- `world`: international tech, economy, and broad social trends
+
+If a feed is not reliable or cannot be verified, keep it in `docs/news-sources.md` instead of hard-coding it as the active workflow source.
+
 ## Manual Verification
 
 Before switching to daily automation, run the workflow manually once.
@@ -95,4 +127,3 @@ If the workflow fails, check these first:
 - `OpenAI` failure: check `OPENAI_API_KEY`, `OPENAI_MODEL`, and the prompt output shape.
 - `POST /api/jobs/process-ai-reply` returns `Unauthorized.`: `JOB_PROCESS_SECRET` is wrong.
 - `processed:false` with no queued jobs: this is normal.
-

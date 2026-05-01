@@ -12,13 +12,23 @@
     },
     {
       "parameters": {
-        "jsCode": "const today = new Date().toISOString().slice(0, 10);\n\nreturn [\n  {\n    json: {\n      category: 'world',\n      categoryLabel: 'world',\n      rssUrl: 'https://example.com/rss/world.xml',\n      slugPrefix: `${today}-world-`,\n      sourceHint: 'world feed placeholder'\n    }\n  },\n  {\n    json: {\n      category: 'japan',\n      categoryLabel: 'japan',\n      rssUrl: 'https://example.com/rss/japan.xml',\n      slugPrefix: `${today}-japan-`,\n      sourceHint: 'japan feed placeholder'\n    }\n  },\n  {\n    json: {\n      category: 'it-trend',\n      categoryLabel: 'it-trend',\n      rssUrl: 'https://example.com/rss/it-trend.xml',\n      slugPrefix: `${today}-it-trend-`,\n      sourceHint: 'it trend feed placeholder'\n    }\n  }\n];"
+        "jsCode": "const today = new Date().toISOString().slice(0, 10);\n\nconst categories = [\n  {\n    category: 'it-trend',\n    categoryLabel: 'it-trend',\n    enabled: true,\n    sourceCandidates: [\n      {\n        label: 'Hacker News',\n        kind: 'rss',\n        url: 'https://news.ycombinator.com/rss',\n        enabled: true,\n        primary: true,\n        notes: 'verified'\n      },\n      {\n        label: 'GitHub Blog',\n        kind: 'rss',\n        url: 'https://github.blog/feed/',\n        enabled: true,\n        notes: 'verified'\n      },\n      {\n        label: 'Cloudflare Blog',\n        kind: 'rss',\n        url: 'https://blog.cloudflare.com/rss/',\n        enabled: true,\n        notes: 'verified'\n      },\n      {\n        label: 'TechCrunch',\n        kind: 'rss',\n        url: 'https://techcrunch.com/feed/',\n        enabled: true,\n        notes: 'verified'\n      },\n      {\n        label: 'The Verge',\n        kind: 'rss',\n        url: 'https://www.theverge.com/rss/index.xml',\n        enabled: true,\n        notes: 'verified'\n      },\n      {\n        label: 'OpenAI Blog',\n        kind: 'rss',\n        url: 'https://openai.com/blog/rss.xml',\n        enabled: true,\n        notes: 'verified'\n      },\n      {\n        label: 'Google Cloud Blog',\n        kind: 'rss',\n        url: 'https://cloud.google.com/blog/rss.xml',\n        enabled: false,\n        notes: 'verify before enabling'\n      },\n      {\n        label: 'Firebase Blog',\n        kind: 'rss',\n        url: 'https://firebase.blog/feed.xml',\n        enabled: false,\n        notes: 'replace with current URL before enabling'\n      }\n    ]\n  },\n  {\n    category: 'japan',\n    categoryLabel: 'japan',\n    enabled: false,\n    sourceCandidates: [\n      {\n        label: 'Digital Agency',\n        kind: 'rss',\n        url: 'https://www.digital.go.jp/rss/news.xml',\n        enabled: true,\n        primary: true,\n        notes: 'verified'\n      },\n      {\n        label: 'NHK News',\n        kind: 'rss',\n        url: 'https://www.nhk.or.jp/rss/news/cat0.xml',\n        enabled: true,\n        notes: 'verified'\n      },\n      {\n        label: 'ITmedia NEWS',\n        kind: 'rss',\n        url: 'https://rss.itmedia.co.jp/rss/2.0/news_bursts.xml',\n        enabled: true,\n        notes: 'verified'\n      },\n      {\n        label: 'Impress Watch',\n        kind: 'manual',\n        url: '',\n        enabled: false,\n        notes: 'find and verify the current feed URL before enabling'\n      }\n    ]\n  },\n  {\n    category: 'world',\n    categoryLabel: 'world',\n    enabled: false,\n    sourceCandidates: [\n      {\n        label: 'BBC News',\n        kind: 'rss',\n        url: 'https://feeds.bbci.co.uk/news/rss.xml',\n        enabled: true,\n        primary: true,\n        notes: 'verified'\n      },\n      {\n        label: 'The Guardian',\n        kind: 'rss',\n        url: 'https://www.theguardian.com/world/rss',\n        enabled: true,\n        notes: 'verified'\n      },\n      {\n        label: 'NPR',\n        kind: 'rss',\n        url: 'https://feeds.npr.org/1001/rss.xml',\n        enabled: true,\n        notes: 'verified'\n      },\n      {\n        label: 'Reuters',\n        kind: 'manual',\n        url: '',\n        enabled: false,\n        notes: 'verify a public RSS endpoint before enabling'\n      },\n      {\n        label: 'AP News',\n        kind: 'manual',\n        url: '',\n        enabled: false,\n        notes: 'verify a public RSS endpoint before enabling'\n      },\n      {\n        label: 'World Economic Forum',\n        kind: 'manual',\n        url: '',\n        enabled: false,\n        notes: 'verify a public RSS endpoint before enabling'\n      }\n    ]\n  }\n];\n\nreturn categories.map((category) => {\n  const activeCandidate = category.sourceCandidates.find((candidate) => candidate.enabled && candidate.url) ??\n    category.sourceCandidates.find((candidate) => candidate.enabled) ??\n    null;\n\n  return {\n    json: {\n      ...category,\n      rssUrl: activeCandidate?.url ?? '',\n      selectedSourceCandidate: activeCandidate,\n      slugPrefix: `${today}-${category.category}-`,\n      sourceHint: category.sourceCandidates\n        .filter((candidate) => candidate.enabled)\n        .map((candidate) => candidate.label)\n        .join(', ')\n    }\n  };\n});"
       },
       "id": "build-source-candidates",
       "name": "Build Source Candidates",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [520, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.filter((item) => item.json.enabled !== false);"
+      },
+      "id": "filter-enabled-categories",
+      "name": "Filter Enabled Categories",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 280]
     },
     {
       "parameters": {
@@ -265,6 +275,17 @@
       ]
     },
     "Build Source Candidates": {
+      "main": [
+        [
+          {
+            "node": "Filter Enabled Categories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Enabled Categories": {
       "main": [
         [
           {
