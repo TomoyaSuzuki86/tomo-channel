@@ -27,7 +27,7 @@ env:
       - RUNTIME
 
   - variable: AI_REPLY_PROVIDER
-    value: "mock"
+    value: "openai"
     availability:
       - BUILD
       - RUNTIME
