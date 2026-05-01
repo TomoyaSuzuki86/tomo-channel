@@ -8,6 +8,7 @@ runConfig:
 
 vpcAccess:
   connector: projects/tomo-channel-app/locations/asia-east1/connectors/tomo-channel-connector
+  egress: PRIVATE_RANGES_ONLY
 
 env:
   - variable: APP_HOSTING
