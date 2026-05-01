@@ -1,0 +1,37 @@
+{
+  "slug": "2026-05-02-it-trend-ai-workflow",
+  "title": "A small daily AI workflow improvement",
+  "category": "it-trend",
+  "publishedAt": "2026-05-02T07:30:00+09:00",
+  "summaryLines": [
+    "A small improvement to the morning workflow can remove a lot of posting friction.",
+    "The first step is to wire RSS and OpenAI together in a controlled way.",
+    "Tomo-channel should stay short, readable, and easy to scan."
+  ],
+  "bodyLines": [
+    "This sample exists only for the autopost verification flow.",
+    "In production, do not trust the RSS candidate list or the OpenAI output without review."
+  ],
+  "whyItMatters": "A stable article entry point makes daily operations much easier.",
+  "tomoPoint": "Get one article through first, then refine the RSS and prompt.",
+  "thumbnailUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+  "tags": ["autopost", "it", "openai"],
+  "sources": [
+    {
+      "label": "Sample source 1",
+      "url": "https://example.com/source-1"
+    },
+    {
+      "label": "Sample source 2",
+      "url": "https://example.com/source-2"
+    }
+  ],
+  "initialEditorComment": {
+    "bodyLines": [
+      "This is a sample autopost article.",
+      "Use it to verify RSS and OpenAI connectivity."
+    ],
+    "authorName": "editor",
+    "shortId": "editor"
+  }
+}

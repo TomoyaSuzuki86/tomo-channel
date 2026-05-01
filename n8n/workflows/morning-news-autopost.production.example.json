@@ -1,0 +1,401 @@
+{
+  "id": "morning-news-autopost-production-example",
+  "name": "Morning News Autopost Production",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [280, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "const today = new Date().toISOString().slice(0, 10);\n\nreturn [\n  {\n    json: {\n      category: 'world',\n      categoryLabel: 'world',\n      rssUrl: 'https://example.com/rss/world.xml',\n      slugPrefix: `${today}-world-`,\n      sourceHint: 'world feed placeholder'\n    }\n  },\n  {\n    json: {\n      category: 'japan',\n      categoryLabel: 'japan',\n      rssUrl: 'https://example.com/rss/japan.xml',\n      slugPrefix: `${today}-japan-`,\n      sourceHint: 'japan feed placeholder'\n    }\n  },\n  {\n    json: {\n      category: 'it-trend',\n      categoryLabel: 'it-trend',\n      rssUrl: 'https://example.com/rss/it-trend.xml',\n      slugPrefix: `${today}-it-trend-`,\n      sourceHint: 'it trend feed placeholder'\n    }\n  }\n];"
+      },
+      "id": "build-source-candidates",
+      "name": "Build Source Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 280]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$json.rssUrl}}",
+        "authentication": "none",
+        "responseFormat": "string",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "fetch-candidate-feed",
+      "name": "Fetch Candidate Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [760, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawFeed = typeof $json.body === 'string' ? $json.body : (typeof $json.data === 'string' ? $json.data : JSON.stringify($json));\n\nconst itemMatches = [...rawFeed.matchAll(/<item>[\\s\\S]*?<title>(.*?)<\\/title>[\\s\\S]*?<link>(.*?)<\\/link>[\\s\\S]*?<\\/item>/gi)];\nconst parsedSources = itemMatches.slice(0, 3).map((match, index) => ({\n  label: match[1].trim() || `${$json.categoryLabel} source ${index + 1}`,\n  url: match[2].trim()\n})).filter((source) => /^https?:\\/\\//i.test(source.url));\n\nconst titleMatches = [...rawFeed.matchAll(/<title>(.*?)<\\/title>/gi)].map((match) => match[1].trim()).filter(Boolean);\nconst headlineHints = titleMatches.slice(1, 5);\n\nreturn [\n  {\n    json: {\n      ...$json,\n      parsedSources: parsedSources.length > 0 ? parsedSources : [\n        {\n          label: `${$json.categoryLabel} RSS placeholder`,\n          url: $json.rssUrl\n        }\n      ],\n      headlineHints,\n      feedExcerpt: rawFeed.slice(0, 4000)\n    }\n  }\n];"
+      },
+      "id": "shape-candidates",
+      "name": "Shape Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "const date = new Date();\nconst publishedAt = date.toISOString();\nconst compactDate = publishedAt.slice(0, 10);\nconst topicSeed = ($json.headlineHints?.[0] ?? $json.categoryLabel ?? $json.category)\n  .toLowerCase()\n  .replace(/[^a-z0-9-]+/gi, '-')\n  .replace(/^-+|-+$/g, '')\n  .slice(0, 24) || 'daily-update';\n\nconst prompt = [\n  'You are writing a compact Japanese news-board article for tomo-channel.',\n  'Return JSON only. Do not add facts that are not supported by the sources.',\n  'Keep the tone calm, readable, and forum-summary-like.',\n  'Do not imitate real forum users or real journalists.',\n  'Do not use harsh or sensational language.',\n  'Category must be one of: world, japan, it-trend.',\n  `Slug prefix: ${$json.slugPrefix}`,\n  `Date: ${compactDate}`,\n  `Sources: ${JSON.stringify($json.parsedSources)}`,\n  `Feed hints: ${JSON.stringify($json.headlineHints ?? [])}`,\n  '',\n  'Required output schema:',\n  '{',\n  '  \"slug\": \"...\",',\n  '  \"title\": \"...\",',\n  '  \"category\": \"world | japan | it-trend\",',\n  '  \"publishedAt\": \"...\",',\n  '  \"summaryLines\": [\"...\", \"...\", \"...\"],',\n  '  \"bodyLines\": [\"...\", \"...\"],',\n  '  \"whyItMatters\": \"...\",',\n  '  \"tomoPoint\": \"...\",',\n  '  \"thumbnailUrl\": \"...\",',\n  '  \"tags\": [\"...\"],',\n  '  \"sources\": [{ \"label\": \"...\", \"url\": \"...\" }],',\n  '  \"initialEditorComment\": {',\n  '    \"bodyLines\": [\"...\"],',\n  '    \"authorName\": \"editor\",',\n  '    \"shortId\": \"editor\"',\n  '  }',\n  '}',\n  '',\n  'Safety rules:',\n  '- Use only the provided sources.',\n  '- Do not speculate.',\n  '- Do not write defamation or discrimination.',\n  '- Be especially careful with politics, disasters, medicine, and finance.',\n  '- Keep jokes light and do not distort the facts.',\n  '- Slug must be lowercase ASCII letters, numbers, and hyphens only.',\n  `Recommended slug pattern: ${$json.slugPrefix}${topicSeed}`\n].join('\\n');\n\nreturn [\n  {\n    json: {\n      ...$json,\n      publishedAt,\n      prompt,\n      openAiRequest: {\n        model: $env.OPENAI_MODEL || 'gpt-5.4-mini',\n        messages: [\n          {\n            role: 'system',\n            content: 'You are writing a short news-board article for tomo-channel. Return JSON only. Use only the provided sources. Keep it factual and concise.'\n          },\n          {\n            role: 'user',\n            content: prompt\n          }\n        ],\n        temperature: 0.5,\n        response_format: {\n          type: 'json_object'\n        }\n      }\n    }\n  }\n];"
+      },
+      "id": "build-openai-request",
+      "name": "Build OpenAI Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{'Bearer ' + ($env.OPENAI_API_KEY || '')}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersJson": "={{JSON.stringify($json.openAiRequest)}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "generate-article-json",
+      "name": "Generate Article JSON",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1480, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "let article;\ntry {\n  const content = $json.choices?.[0]?.message?.content ?? '{}';\n  article = JSON.parse(content);\n} catch (error) {\n  article = {\n    slug: `${$json.slugPrefix}fallback-${Date.now()}`,\n    title: `${$json.categoryLabel} update`,\n    category: $json.category,\n    publishedAt: $json.publishedAt,\n    summaryLines: [\n      `${$json.categoryLabel} autopost fallback article.`,\n      'This example is for workflow testing.',\n      'Replace the RSS feeds and prompt before production use.'\n    ],\n    bodyLines: [\n      'OpenAI output was not readable as JSON, so a fallback article was created.',\n      'Check the prompt and response shape before real use.'\n    ],\n    whyItMatters: 'This keeps the autopost pipeline testable.',\n    tomoPoint: 'Start small, then refine the RSS and prompt.',\n    thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80',\n    tags: ['autopost', $json.category],\n    sources: $json.parsedSources,\n    initialEditorComment: {\n      bodyLines: ['Autopost sample article. Please verify RSS and OpenAI connectivity.'],\n      authorName: 'editor',\n      shortId: 'editor'\n    }\n  };\n}\n\nconst normalizedArticle = {\n  ...article,\n  category: article.category || $json.category,\n  publishedAt: article.publishedAt || $json.publishedAt,\n  sources: Array.isArray(article.sources) && article.sources.length > 0 ? article.sources : $json.parsedSources,\n  initialEditorComment: article.initialEditorComment ?? {\n    bodyLines: ['Autopost sample article.'],\n    authorName: 'editor',\n    shortId: 'editor'\n  }\n};\n\nreturn [\n  {\n    json: {\n      ...$json,\n      articlePayload: normalizedArticle\n    }\n  }\n];"
+      },
+      "id": "normalize-article-json",
+      "name": "Normalize Article JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1720, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.APP_HOSTING_URL || 'https://tomo-channel--tomo-channel-app.asia-east1.hosted.app'}}/api/admin/articles",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{'Bearer ' + ($env.ADMIN_API_SECRET || '')}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersJson": "={{JSON.stringify($json.articlePayload)}}",
+        "options": {
+          "timeout": 120000,
+          "ignoreResponseCode": true
+        }
+      },
+      "id": "create-article",
+      "name": "Create Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1960, 280]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.statusCode}}",
+              "operation": "equals",
+              "value2": 409
+            }
+          ]
+        }
+      },
+      "id": "article-conflict",
+      "name": "Article Already Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2200, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.APP_HOSTING_URL || 'https://tomo-channel--tomo-channel-app.asia-east1.hosted.app'}}/api/jobs/process-ai-reply",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{'Bearer ' + ($env.JOB_PROCESS_SECRET || '')}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersJson": "{}",
+        "options": {
+          "timeout": 120000,
+          "ignoreResponseCode": true
+        }
+      },
+      "id": "process-ai-reply-1",
+      "name": "Process AI Reply 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2440, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.APP_HOSTING_URL || 'https://tomo-channel--tomo-channel-app.asia-east1.hosted.app'}}/api/jobs/process-ai-reply",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{'Bearer ' + ($env.JOB_PROCESS_SECRET || '')}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersJson": "{}",
+        "options": {
+          "timeout": 120000,
+          "ignoreResponseCode": true
+        }
+      },
+      "id": "process-ai-reply-2",
+      "name": "Process AI Reply 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2680, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.APP_HOSTING_URL || 'https://tomo-channel--tomo-channel-app.asia-east1.hosted.app'}}/api/jobs/process-ai-reply",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{'Bearer ' + ($env.JOB_PROCESS_SECRET || '')}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersJson": "{}",
+        "options": {
+          "timeout": 120000,
+          "ignoreResponseCode": true
+        }
+      },
+      "id": "process-ai-reply-3",
+      "name": "Process AI Reply 3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2920, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const statusCode = $json.statusCode ?? 409;\n\nreturn [\n  {\n    json: {\n      statusCode,\n      created: false,\n      skipped: true,\n      processed: false,\n      createdCommentCount: null,\n      aiReplySweeps: 0,\n      note: 'duplicate-slug-skipped'\n    }\n  }\n];"
+      },
+      "id": "conflict-summary",
+      "name": "Conflict Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const createdCommentCount = typeof $json.createdCommentCount === 'number' ? $json.createdCommentCount : null;\nconst processed = $json.processed === true;\n\nreturn [\n  {\n    json: {\n      statusCode: $json.statusCode ?? 200,\n      created: true,\n      skipped: false,\n      processed,\n      createdCommentCount,\n      aiReplySweeps: 3,\n      note: processed ? 'created-and-swept' : 'created-no-queued-job'\n    }\n  }\n];"
+      },
+      "id": "success-summary",
+      "name": "Success Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3160, 160]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Build Source Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Source Candidates": {
+      "main": [
+        [
+          {
+            "node": "Fetch Candidate Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Candidate Feed": {
+      "main": [
+        [
+          {
+            "node": "Shape Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Candidates": {
+      "main": [
+        [
+          {
+            "node": "Build OpenAI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build OpenAI Request": {
+      "main": [
+        [
+          {
+            "node": "Generate Article JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Article JSON": {
+      "main": [
+        [
+          {
+            "node": "Normalize Article JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Article JSON": {
+      "main": [
+        [
+          {
+            "node": "Create Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Article": {
+      "main": [
+        [
+          {
+            "node": "Article Already Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Article Already Exists?": {
+      "main": [
+        [
+          {
+            "node": "Conflict Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process AI Reply 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process AI Reply 1": {
+      "main": [
+        [
+          {
+            "node": "Process AI Reply 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process AI Reply 2": {
+      "main": [
+        [
+          {
+            "node": "Process AI Reply 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process AI Reply 3": {
+      "main": [
+        [
+          {
+            "node": "Success Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "v1"
+}

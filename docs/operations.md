@@ -16,6 +16,7 @@ Keep these in Secret Manager or the Firebase App Hosting backend settings.
 
 - `cloudsql_database_url`
 - `job_process_secret`
+- `admin_api_secret`
 - `openai_api_key`
 
 Never commit `.env` or real secret values.
@@ -60,9 +61,22 @@ Production example:
 n8n/workflows/process-ai-reply.production.example.json
 ```
 
+Morning autopost example:
+
+```text
+n8n/workflows/morning-news-autopost.production.example.json
+```
+
 Before importing it, replace:
 
 - `<JOB_PROCESS_SECRET>`
+- `<ADMIN_API_SECRET>`
+- placeholder RSS URLs
+
+The morning autopost workflow uses:
+
+- `POST /api/admin/articles`
+- `POST /api/jobs/process-ai-reply`
 
 The URL is currently:
 
@@ -102,3 +116,4 @@ or:
 - `relation "AiReplyJob" does not exist`: Cloud SQL is reachable but Prisma schema is missing.
 - `Can't reach database server`: App Hosting VPC or Cloud SQL connectivity is not working.
 - OpenAI provider failures should mark the job as `failed` with `lastError`.
+- `409 Conflict` from article ingestion means the slug already exists and is safe to skip.

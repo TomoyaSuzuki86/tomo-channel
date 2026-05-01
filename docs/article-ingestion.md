@@ -49,13 +49,20 @@ Use JSON with the following fields:
 `summaryLines` and `bodyLines` are stored as arrays of text lines.
 `sources` is required and must contain at least one item.
 
+For the morning autopost workflow, the recommended categories are:
+
+- `world`
+- `japan`
+- `it-trend`
+
+The API accepts any non-empty slug-safe category string today, so the autopost workflow can keep those values stable without forcing a hard enum in the admin endpoint.
+
 ## Validation
 
 The API rejects:
 
 - slugs with characters other than letters, numbers, and hyphens
 - missing or empty titles
-- invalid categories
 - missing sources
 - invalid URLs
 - overlong summary/body fields
@@ -102,3 +109,4 @@ curl -X POST "https://<App Hosting URL>/api/admin/articles" \
 - The browser UI does not call this endpoint.
 - RSS ingestion and OpenAI generation are not part of this endpoint yet.
 - Use n8n or a trusted admin script to post article payloads.
+- The morning autopost workflow should generate slugs in the `YYYY-MM-DD-category-short-topic` format.
