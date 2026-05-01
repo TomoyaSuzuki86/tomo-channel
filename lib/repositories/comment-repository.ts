@@ -49,6 +49,14 @@ export async function listCommentsByArticleId(articleId: string) {
   return comments.map(mapComment);
 }
 
+export async function listComments() {
+  const comments = await prisma.comment.findMany({
+    orderBy: [{ articleId: "asc" }, { displayNo: "asc" }, { createdAt: "asc" }]
+  });
+
+  return comments.map(mapComment);
+}
+
 export async function getNextDisplayNoForArticle(
   client: CommentWriteClient,
   articleId: string

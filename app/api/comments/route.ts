@@ -101,12 +101,18 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const articleId = searchParams.get("articleId")?.trim() ?? "";
 
-  if (!articleId) {
-    return buildErrorResponse(400, "articleId is required.");
-  }
-
   const { getArticleById } = await import("@/lib/repositories/article-repository");
-  const { listCommentsByArticleId } = await import("@/lib/repositories/comment-repository");
+  const { listComments, listCommentsByArticleId } = await import("@/lib/repositories/comment-repository");
+
+  if (!articleId) {
+    const comments = await listComments();
+
+    return buildResponseJson(200, {
+      ok: true,
+      articleId: null,
+      comments
+    });
+  }
 
   const article = await getArticleById(articleId);
 

@@ -79,7 +79,7 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
       throw new Error(payload.error ?? "コメントを更新できませんでした。");
     }
 
-    return sortComments(payload.comments);
+    return sortComments(payload.comments.filter((comment) => comment.articleId === articleId));
   }
 
   function startDbReplyPolling(anchorDisplayNo: number) {
