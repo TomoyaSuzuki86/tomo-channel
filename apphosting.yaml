@@ -6,6 +6,9 @@ runConfig:
   memoryMiB: 512
   concurrency: 80
 
+vpcAccess:
+  connector: projects/tomo-channel-app/locations/asia-east1/connectors/tomo-channel-connector
+
 env:
   - variable: APP_HOSTING
     value: "true"
@@ -39,7 +42,3 @@ env:
     availability:
       - BUILD
       - RUNTIME
-
-# Configure VPC access in Firebase/GCP when connecting to Cloud SQL.
-# vpcAccess:
-#   connector: projects/PROJECT_ID/locations/REGION/connectors/CONNECTOR_NAME
