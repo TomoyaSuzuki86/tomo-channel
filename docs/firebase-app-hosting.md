@@ -62,6 +62,22 @@ runConfig:
 The actual Cloud SQL instance, connector, and secret names are environment-specific.
 Keep the live connection string in Secret Manager or the Firebase console, not in the repo.
 
+For the v1.3.0 smoke test, this setup reached Cloud SQL through the VPC connector and the process-job API returned:
+
+```json
+{"ok":true,"processed":false,"reason":"no-queued-job"}
+```
+
+That response means App Hosting can reach the database and there are simply no queued jobs left.
+
+If Cloud SQL has no Prisma tables yet, the API can fail with:
+
+```text
+relation "AiReplyJob" does not exist
+```
+
+That is a successful network connection but an uninitialized database. Apply the Prisma schema to Cloud SQL before retrying.
+
 ## Build behavior
 
 App Hosting should use the normal Next.js production build, but without the static export path.

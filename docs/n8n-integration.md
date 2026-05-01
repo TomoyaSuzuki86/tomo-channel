@@ -8,6 +8,10 @@ An importable example workflow lives at:
 
 `n8n/workflows/process-ai-reply.example.json`
 
+For Firebase App Hosting smoke tests, use:
+
+`n8n/workflows/process-ai-reply.app-hosting.example.json`
+
 It uses the minimal pattern:
 
 1. Manual Trigger
@@ -58,6 +62,15 @@ If you change `JOB_PROCESS_SECRET`, update the example workflow header to match.
 
 If you run n8n in Docker on the same machine as Next dev, `host.docker.internal` is the easiest way to reach the local API.
 
+For App Hosting, set the URL to:
+
+```text
+https://YOUR-APP-HOSTING-DOMAIN/api/jobs/process-ai-reply
+```
+
+The v1.3.0 smoke test used the deployed App Hosting API, Cloud SQL, and `AI_REPLY_PROVIDER=mock`.
+See `docs/app-hosting-n8n-smoke-test.md` for the full reproduction notes.
+
 ## Import steps
 
 1. Open n8n.
@@ -65,6 +78,11 @@ If you run n8n in Docker on the same machine as Next dev, `host.docker.internal`
 3. Import `n8n/workflows/process-ai-reply.example.json`.
 4. Set `JOB_PROCESS_SECRET` in the n8n runtime environment.
 5. Confirm the HTTP Request node still points at the correct API base URL for your environment.
+
+For the App Hosting example workflow, replace these placeholders before running:
+
+- `<APP_HOSTING_URL>`
+- `<JOB_PROCESS_SECRET>`
 
 ## Curl examples
 
