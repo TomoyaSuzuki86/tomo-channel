@@ -82,7 +82,7 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
     return sortComments(payload.comments);
   }
 
-  function startDbReplyPolling(anchorDisplayNo: number, previousAiCommentCount: number) {
+  function startDbReplyPolling(anchorDisplayNo: number) {
     let attempt = 0;
 
     const poll = async () => {
@@ -90,14 +90,13 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
 
       try {
         const latestComments = await fetchComments();
-        const latestAiCommentCount = latestComments.filter((comment) => comment.aiGenerated).length;
         const hasNewReplyToAnchor = latestComments.some(
           (comment) => comment.aiGenerated && comment.replyToDisplayNo === anchorDisplayNo
         );
 
         setComments(latestComments);
 
-        if (hasNewReplyToAnchor || latestAiCommentCount > previousAiCommentCount) {
+        if (hasNewReplyToAnchor) {
           setPendingReplies((current) =>
             current.filter((pending) => pending.anchorDisplayNo !== anchorDisplayNo)
           );
@@ -125,7 +124,6 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
   }
 
   async function submitToDatabase(trimmed: string) {
-    const previousAiCommentCount = comments.filter((comment) => comment.aiGenerated).length;
     const response = await fetch("/api/comments", {
       method: "POST",
       headers: {
@@ -161,7 +159,7 @@ export function CommentThread({ articleId, dbBackedMode = false, initialComments
           replyMode: "explain"
         }
       ]);
-      startDbReplyPolling(createdComment.displayNo, previousAiCommentCount);
+      startDbReplyPolling(createdComment.displayNo);
     }
   }
 
