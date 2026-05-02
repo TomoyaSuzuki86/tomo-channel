@@ -4,12 +4,17 @@ import { Search } from "lucide-react";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArticleCard } from "@/components/article-card";
-import { contentCategories, getCategoryPath, searchArticles } from "@/lib/content";
+import { contentCategories, getCategoryPath, searchArticleList } from "@/lib/content";
+import type { Article } from "@/lib/types";
 
-export function SearchResults() {
+type SearchResultsProps = {
+  articles: Article[];
+};
+
+export function SearchResults({ articles }: SearchResultsProps) {
   const searchParams = useSearchParams();
   const query = searchParams.get("q")?.trim() ?? "";
-  const results = useMemo(() => searchArticles(query), [query]);
+  const results = useMemo(() => searchArticleList(articles, query), [articles, query]);
   const visibleArticles = query ? results : results.slice(0, 4);
 
   return (

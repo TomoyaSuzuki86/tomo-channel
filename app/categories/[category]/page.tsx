@@ -3,13 +3,20 @@ import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { ArticleCard } from "@/components/article-card";
 import { RankingSidebar } from "@/components/ranking-sidebar";
-import { contentCategories, getArticlesByCategory, getCategoryLabelFromSlug, getCategoryPath } from "@/lib/content";
+import {
+  contentCategories,
+  getArticlesByCategoryForDisplay,
+  getCategoryLabelFromSlug,
+  getCategoryPath
+} from "@/lib/content";
 
 type CategoryPageProps = {
   params: Promise<{
     category: string;
   }>;
 };
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return contentCategories.map((category) => ({
@@ -41,7 +48,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     notFound();
   }
 
-  const categoryArticles = getArticlesByCategory(categoryLabel);
+  const categoryArticles = await getArticlesByCategoryForDisplay(categoryLabel);
 
   return (
     <main className="mx-auto grid max-w-7xl gap-5 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">

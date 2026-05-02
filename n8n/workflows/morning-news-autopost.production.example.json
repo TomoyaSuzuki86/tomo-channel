@@ -174,7 +174,8 @@
         "bodyParametersJson": "={{JSON.stringify($json.articlePayload)}}",
         "options": {
           "timeout": 120000,
-          "ignoreResponseCode": true
+          "ignoreResponseCode": true,
+          "fullResponse": true
         }
       },
       "id": "create-article",
@@ -191,7 +192,7 @@
         "conditions": {
           "number": [
             {
-              "value1": "={{$json.statusCode}}",
+              "value1": "={{$json.createStatusCode}}",
               "operation": "equals",
               "value2": 409
             }
@@ -203,7 +204,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2200,
+        2440,
         280
       ]
     },
@@ -302,7 +303,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const statusCode = $json.statusCode ?? 409;\n\nreturn [\n  {\n    json: {\n      statusCode,\n      created: false,\n      skipped: true,\n      processed: false,\n      createdCommentCount: null,\n      aiReplySweeps: 0,\n      note: 'duplicate-slug-skipped'\n    }\n  }\n];"
+        "jsCode": "const statusCode = $json.createStatusCode ?? 409;\n\nreturn [\n  {\n    json: {\n      statusCode,\n      created: false,\n      skipped: true,\n      processed: false,\n      createdCommentCount: null,\n      aiReplySweeps: 0,\n      note: 'duplicate-slug-skipped',\n      error: $json.error ?? null\n    }\n  }\n];"
       },
       "id": "conflict-summary",
       "name": "Conflict Summary",
@@ -315,7 +316,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const createdCommentCount = typeof $json.createdCommentCount === 'number' ? $json.createdCommentCount : null;\nconst processed = $json.processed === true;\n\nreturn [\n  {\n    json: {\n      statusCode: $json.statusCode ?? 200,\n      created: true,\n      skipped: false,\n      processed,\n      createdCommentCount,\n      aiReplySweeps: 3,\n      note: processed ? 'created-and-swept' : 'created-no-queued-job'\n    }\n  }\n];"
+        "jsCode": "const createdCommentCount = typeof $json.createdCommentCount === 'number' ? $json.createdCommentCount : null;\nconst processed = $json.processed === true;\n\nreturn [\n  {\n    json: {\n      statusCode: 201,\n      created: true,\n      skipped: false,\n      processed,\n      createdCommentCount,\n      aiReplySweeps: 3,\n      note: processed ? 'created-and-swept' : 'created-no-queued-job'\n    }\n  }\n];"
       },
       "id": "success-summary",
       "name": "Success Summary",
@@ -324,6 +325,19 @@
       "position": [
         3160,
         160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const statusCode = Number($json.statusCode ?? 0);\nconst body = $json.body && typeof $json.body === 'object' ? $json.body : {};\n\nif (statusCode === 201 || statusCode === 409) {\n  return [\n    {\n      json: {\n        ...body,\n        createStatusCode: statusCode,\n        createResponse: body\n      }\n    }\n  ];\n}\n\nconst message = body.error || body.message || $json.statusMessage || `Article creation failed with HTTP ${statusCode || 'unknown'}.`;\nthrow new Error(message);"
+      },
+      "id": "guard-article-create-result",
+      "name": "Guard Article Create Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        280
       ]
     }
   ],
@@ -431,7 +445,7 @@
       "main": [
         [
           {
-            "node": "Article Already Exists?",
+            "node": "Guard Article Create Result",
             "type": "main",
             "index": 0
           }
@@ -483,6 +497,17 @@
         [
           {
             "node": "Success Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard Article Create Result": {
+      "main": [
+        [
+          {
+            "node": "Article Already Exists?",
             "type": "main",
             "index": 0
           }

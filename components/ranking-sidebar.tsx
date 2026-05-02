@@ -1,10 +1,17 @@
 import { ChevronRight, Flame, Hash, Info, Megaphone } from "lucide-react";
 import Link from "next/link";
 import { rankingArticles } from "@/lib/mock-data";
+import { getArticlesForDisplay } from "@/lib/content";
 
 const keywords = ["AI", "生活メモ", "家計", "地域", "学び直し", "予定共有", "掲示板", "朝刊"];
 
-export function RankingSidebar() {
+export async function RankingSidebar() {
+  const displayRankingArticles = (await getArticlesForDisplay(10))
+    .sort((first, second) => second.viewCount - first.viewCount)
+    .slice(0, 5);
+
+  const sidebarArticles = displayRankingArticles.length > 0 ? displayRankingArticles : rankingArticles.slice(0, 5);
+
   return (
     <aside className="space-y-4">
       <section id="ranking" className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
@@ -18,7 +25,7 @@ export function RankingSidebar() {
           <span className="py-2">月間</span>
         </div>
         <ol className="mt-4 space-y-4">
-          {rankingArticles.slice(0, 5).map((article, index) => (
+          {sidebarArticles.map((article, index) => (
             <li className="grid grid-cols-[28px_1fr] gap-3" key={article.id}>
               <span
                 className={[

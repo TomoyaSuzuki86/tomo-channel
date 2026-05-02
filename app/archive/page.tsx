@@ -2,10 +2,12 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { ArticleCard } from "@/components/article-card";
 import { RankingSidebar } from "@/components/ranking-sidebar";
-import { groupArticlesByDay } from "@/lib/content";
+import { groupArticlesByDayForDisplay } from "@/lib/content";
 
-export default function ArchivePage() {
-  const groups = groupArticlesByDay();
+export const dynamic = "force-dynamic";
+
+export default async function ArchivePage() {
+  const groups = await groupArticlesByDayForDisplay();
 
   return (
     <main className="mx-auto grid max-w-7xl gap-5 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">

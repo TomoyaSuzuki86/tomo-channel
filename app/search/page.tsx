@@ -1,8 +1,13 @@
 import { Suspense } from "react";
 import { RankingSidebar } from "@/components/ranking-sidebar";
 import { SearchResults } from "@/components/search-results";
+import { getArticlesForDisplay } from "@/lib/content";
 
-export default function SearchPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SearchPage() {
+  const articles = await getArticlesForDisplay(50);
+
   return (
     <main className="mx-auto grid max-w-7xl gap-5 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-5">
@@ -14,7 +19,7 @@ export default function SearchPage() {
             </section>
           }
         >
-          <SearchResults />
+          <SearchResults articles={articles} />
         </Suspense>
       </div>
       <RankingSidebar />

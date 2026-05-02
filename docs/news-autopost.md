@@ -113,6 +113,7 @@ Before switching to daily automation, run the workflow manually once.
 8. Confirm duplicate slugs return `409` and are treated as a normal skip.
 9. Confirm the article opens on the App Hosting URL.
 10. If queued jobs exist, confirm the workflow can sweep them with `POST /api/jobs/process-ai-reply`.
+11. Confirm the workflow's `Create Article` node includes the HTTP status code in its output. The guard node should stop the run for anything other than `201` or `409`.
 
 ## Switching to Daily Schedule
 
@@ -156,6 +157,8 @@ Add the first schedule activation details here once the daily run is turned on.
 
 It means the article slug already exists, so the item should be skipped and summarized as a duplicate.
 
+The `Create Article` HTTP node must return the full response, including `statusCode`. Without that, n8n may only pass the response body to the next node and the duplicate/error branch cannot make a reliable decision.
+
 ## Failure Checklist
 
 If the workflow fails, check these first:
@@ -163,6 +166,7 @@ If the workflow fails, check these first:
 - `401 Unauthorized`: `ADMIN_API_SECRET` is wrong or missing.
 - `500` from article creation: App Hosting cannot reach the database or the payload is invalid.
 - `409 Conflict`: the slug already exists and the workflow should skip it.
+- Missing `statusCode` after `Create Article`: enable full response output on the HTTP node before checking the branch conditions.
 - `OpenAI` failure: check `OPENAI_API_KEY`, `OPENAI_MODEL`, and the prompt output shape.
 - `POST /api/jobs/process-ai-reply` returns `Unauthorized.`: `JOB_PROCESS_SECRET` is wrong.
 - `processed:false` with no queued jobs: this is normal.

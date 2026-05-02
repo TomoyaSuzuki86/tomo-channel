@@ -1,10 +1,12 @@
 import { ArticleCard } from "@/components/article-card";
 import { RankingSidebar } from "@/components/ranking-sidebar";
 import Link from "next/link";
-import { articles } from "@/lib/mock-data";
-import { contentCategories, getCategoryPath } from "@/lib/content";
+import { contentCategories, getArticlesForDisplay, getCategoryPath } from "@/lib/content";
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const articles = await getArticlesForDisplay(20);
   const featured = articles[0];
   const categoryArticles = articles.slice(0, 6);
 
